@@ -1,6 +1,6 @@
 # OpenArm Orca Stack
 
-URDF of OpenArms with ORCA Hands 
+Description of the OpenArms mounted with the Orca Hands
 
 ## Structure
 
