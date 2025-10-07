@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8'?>
+<robot name="Assembly">
+    <link name="Connector">
+        <inertial>
+            <origin xyz="1.1489976617875285e-06 -0.1525688417692158 0.337344043902778" rpy="0.0 0.0 0.0" />
+            <mass value="0.013307690696243135" />
+            <inertia ixx="1.7521075747419046e-06" iyy="8.314805055430891e-07" izz="2.4401209810309916e-06" ixy="9.07155492361631e-12" iyz="2.897194996930023e-10" ixz="-2.2910762028739698e-12" />
+        </inertial>
+        <visual name="Connector_visual">
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <geometry>
+                <mesh filename="meshes/Connector.stl" scale="0.001 0.001 0.001" />
+            </geometry>
+        </visual>
+        <collision name="Connector_collision">
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <geometry>
+                <mesh filename="meshes/Connector.stl" scale="0.001 0.001 0.001" />
+            </geometry>
+        </collision>
+    </link>
+</robot>
