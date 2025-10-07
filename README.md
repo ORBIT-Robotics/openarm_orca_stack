@@ -1,18 +1,12 @@
 # OpenArm Orca Stack
 
-This repository contains the mechanical sub-assemblies and top-level assembly for the OpenArm Orca robotic system.
+URDF of OpenArms with ORCA Hands 
 
 ## Structure
 
-- **connectors_description/** - Hardware connectors and interfaces
-- **openarm_description/** - Robotic arm mechanical assembly
-- **orca_hand_description/** - End-effector (hand) assembly
-- **assembly_description/** - Top-level torso assembly with Xacro definitions
+- **connectors_description/** - Hardware connectors
+- **openarm_description/** - Open arms as
+- **orca_hand_description/** - OCRCA hand assembly 
+- **assembly_description/** - Top-level assembly 
 
-## Getting Started
 
-TODO: Add setup and build instructions
-
-## License
-
-See LICENSE file for details.
