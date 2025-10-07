@@ -34,12 +34,13 @@ else()
   find_package(urdf REQUIRED)
   find_package(xacro REQUIRED)
 
-  install(DIRECTORY urdf/
-    DESTINATION share/${PROJECT_NAME}/urdf
+  # Install the actual layout used in this repo
+  install(DIRECTORY models/
+    DESTINATION share/${PROJECT_NAME}/models
   )
 
-  install(DIRECTORY meshes/
-    DESTINATION share/${PROJECT_NAME}/meshes
+  install(DIRECTORY assets/
+    DESTINATION share/${PROJECT_NAME}/assets
   )
 
   install(DIRECTORY launch/
