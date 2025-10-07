@@ -1,0 +1,25 @@
+# Build outputs
+build/
+logs/
+install/
+devel/
+
+# ROS specific
+*.bag
+*.pyc
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
