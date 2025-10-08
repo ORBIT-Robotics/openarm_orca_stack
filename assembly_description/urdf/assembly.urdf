@@ -1,6 +1,11 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="openarm_orca_stack">
-  
+
+  <!-- Shared material definitions to avoid duplicate declarations in sub-URDFs -->
+  <material name="white">
+    <color rgba="1 1 1 1"/>
+  </material>
+
   <!-- Include OpenArm robot (v10). This file exists. -->
   <xacro:include filename="$(find openarm_description)/urdf/robot/v10.urdf.xacro"/>
   
@@ -12,28 +17,28 @@
   <xacro:include filename="$(find orcahand_description)/models/urdf/orcahand_right.urdf"/>
   
   <!-- LEFT ARM ASSEMBLY -->
-  <!-- Attach left connector to left arm flange (link_6) -->
-  <xacro:connector prefix="left_" parent="left_link_6">
+  <!-- Attach left connector to left arm flange (link_7) -->
+  <xacro:connector prefix="left_" parent="openarm_left_link7">
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </xacro:connector>
-  
+
   <!-- Attach left ORCA hand to left connector -->
   <joint name="left_hand_joint" type="fixed">
     <parent link="left_connector_link"/>
-    <child link="left_palm"/>
+    <child link="left_tower"/>
     <origin xyz="0 0 0.02" rpy="0 0 0"/>
   </joint>
-  
+
   <!-- RIGHT ARM ASSEMBLY -->
-  <!-- Attach right connector to right arm flange (link_6) -->
-  <xacro:connector prefix="right_" parent="right_link_6">
+  <!-- Attach right connector to right arm flange (link_7) -->
+  <xacro:connector prefix="right_" parent="openarm_right_link7">
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </xacro:connector>
-  
+
   <!-- Attach right ORCA hand to right connector -->
   <joint name="right_hand_joint" type="fixed">
     <parent link="right_connector_link"/>
-    <child link="right_palm"/>
+    <child link="right_tower"/>
     <origin xyz="0 0 0.02" rpy="0 0 0"/>
   </joint>
 
