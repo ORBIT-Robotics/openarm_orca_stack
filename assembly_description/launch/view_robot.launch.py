@@ -20,7 +20,8 @@ def generate_launch_description():
     # Evaluate the assembly Xacro
     robot_description = Command([
         'xacro ',
-        PathJoinSubstitution([assembly_pkg_share, 'urdf', 'assembly.urdf'])
+        PathJoinSubstitution([assembly_pkg_share, 'urdf', 'assembly.urdf']),
+        ' bimanual:=true hand:=false ee_type:=none'
     ])
     
     # Robot state publisher node
