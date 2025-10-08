@@ -1,21 +1,21 @@
 Panels:
-  - Class: rviz/Displays
+  - Class: rviz_common/Displays
     Name: Displays
-  - Class: rviz/Views
+  - Class: rviz_common/Views
     Name: Views
 Visualization Manager:
   Class: ""
   Displays:
     - Alpha: 0.5
       Cell Size: 1
-      Class: rviz/Grid
+      Class: rviz_default_plugins/Grid
       Color: 160; 160; 160
       Enabled: true
       Name: Grid
       Plane: XY
       Plane Cell Count: 10
       Reference Frame: <Fixed Frame>
-    - Class: rviz/RobotModel
+    - Class: rviz_default_plugins/RobotModel
       Enabled: true
       Name: RobotModel
       Robot Description: robot_description
@@ -23,11 +23,11 @@ Visualization Manager:
     Background Color: 48; 48; 48
     Fixed Frame: world
   Tools:
-    - Class: rviz/Interact
-    - Class: rviz/MoveCamera
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
   Views:
     Current:
-      Class: rviz/Orbit
+      Class: rviz_default_plugins/Orbit
       Distance: 2.0
       Focal Point:
         X: 0
