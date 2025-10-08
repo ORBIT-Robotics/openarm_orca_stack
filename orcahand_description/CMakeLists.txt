@@ -3,8 +3,16 @@ project(orcahand_description)
 
 find_package(ament_cmake REQUIRED)
 
-install(DIRECTORY urdf meshes launch
-  DESTINATION share/${PROJECT_NAME}
+install(DIRECTORY models/
+  DESTINATION share/${PROJECT_NAME}/models
+)
+
+install(DIRECTORY assets/
+  DESTINATION share/${PROJECT_NAME}/assets
+)
+
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
 )
 
 ament_package()
