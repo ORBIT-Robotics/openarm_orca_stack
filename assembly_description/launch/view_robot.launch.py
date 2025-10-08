@@ -37,6 +37,9 @@ def generate_launch_description():
         left_hand_urdf,
         TextSubstitution(text=' orcahand_right_urdf:='),
         right_hand_urdf
+        'xacro ',
+        PathJoinSubstitution([assembly_pkg_share, 'urdf', 'assembly.urdf']),
+        ' bimanual:=true hand:=false ee_type:=none'
     ])
 
     robot_state_publisher_node = Node(
