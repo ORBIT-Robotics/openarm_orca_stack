@@ -1,11 +1,80 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="openarm_orca_stack">
 
+  <!-- Launch-time arguments allow remapping package locations and enabling ROS 2 control. -->
+  <xacro:arg name="parent" default="world"/>
+  <xacro:arg name="xyz" default="0 0 0"/>
+  <xacro:arg name="rpy" default="0 0 0"/>
+  <xacro:arg name="bimanual" default="true"/>
+  <xacro:arg name="hand" default="false"/>
+  <xacro:arg name="ee_type" default="none"/>
+  <xacro:arg name="ros2_control" default="false"/>
+  <xacro:arg name="use_fake_hardware" default="false"/>
+  <xacro:arg name="fake_sensor_commands" default="false"/>
+  <xacro:arg name="can_fd" default="true"/>
+  <xacro:arg name="can_interface" default="can0"/>
+  <xacro:arg name="left_can_interface" default="can1"/>
+  <xacro:arg name="right_can_interface" default="can0"/>
+  <xacro:arg name="left_arm_base_xyz" default="0.0 0.031 0.698"/>
+  <xacro:arg name="left_arm_base_rpy" default="-1.5708 0 0"/>
+  <xacro:arg name="right_arm_base_xyz" default="0.0 -0.031 0.698"/>
+  <xacro:arg name="right_arm_base_rpy" default="1.5708 0 0"/>
+  <xacro:arg name="openarm_description_path" default="$(find openarm_description)"/>
+  <xacro:arg name="connectors_description_path" default="$(find connectors_description)"/>
+  <xacro:arg name="orcahand_description_path" default="$(find orcahand_description)"/>
+  <xacro:arg name="orcahand_left_urdf" default="$(arg orcahand_description_path)/models/urdf/orcahand_left.urdf"/>
+  <xacro:arg name="orcahand_right_urdf" default="$(arg orcahand_description_path)/models/urdf/orcahand_right.urdf"/>
+
+  <!-- Shared material definition used by the ORCA models. -->
   <!-- Shared material definitions to avoid duplicate declarations in sub-URDFs -->
   <material name="white">
     <color rgba="1 1 1 1"/>
   </material>
 
+  <!-- Bring the OpenArm robot macros into scope and instantiate the bimanual base. -->
+  <xacro:include filename="$(arg openarm_description_path)/urdf/robot/openarm_robot.xacro"/>
+  <xacro:include filename="$(arg connectors_description_path)/urdf/connector.urdf.xacro"/>
+  <xacro:include filename="$(arg orcahand_left_urdf)"/>
+  <xacro:include filename="$(arg orcahand_right_urdf)"/>
+
+  <xacro:openarm_robot
+    arm_type="v10"
+    body_type="v10"
+    joint_limits="${xacro.load_yaml('$(arg openarm_description_path)/config/arm/v10/joint_limits.yaml')}"
+    inertials="${xacro.load_yaml('$(arg openarm_description_path)/config/arm/v10/inertials.yaml')}"
+    kinematics="${xacro.load_yaml('$(arg openarm_description_path)/config/arm/v10/kinematics.yaml')}"
+    kinematics_link="${xacro.load_yaml('$(arg openarm_description_path)/config/arm/v10/kinematics_link.yaml')}"
+    kinematics_offset="${xacro.load_yaml('$(arg openarm_description_path)/config/arm/v10/kinematics_offset.yaml')}"
+    body_inertials="${xacro.load_yaml('$(arg openarm_description_path)/config/body/v10/inertials.yaml')}"
+    body_kinematics="${xacro.load_yaml('$(arg openarm_description_path)/config/body/v10/kinematics.yaml')}"
+    body_kinematics_link="${xacro.load_yaml('$(arg openarm_description_path)/config/body/v10/kinematics.yaml')}"
+    ee_kinematics_link="${xacro.load_yaml('$(arg openarm_description_path)/config/hand/openarm_hand/kinematics_link.yaml')}"
+    hand="$(arg hand)"
+    ee_type="$(arg ee_type)"
+    ros2_control="$(arg ros2_control)"
+    can_interface="$(arg can_interface)"
+    left_can_interface="$(arg left_can_interface)"
+    right_can_interface="$(arg right_can_interface)"
+    left_arm_prefix="left_"
+    right_arm_prefix="right_"
+    use_fake_hardware="$(arg use_fake_hardware)"
+    fake_sensor_commands="$(arg fake_sensor_commands)"
+    no_prefix="false"
+    arm_prefix=""
+    body_prefix=""
+    arm_connected_to="base"
+    body_connected_to="world"
+    bimanual="$(arg bimanual)"
+    right_arm_base_xyz="$(arg right_arm_base_xyz)"
+    left_arm_base_xyz="$(arg left_arm_base_xyz)"
+    right_arm_base_rpy="$(arg right_arm_base_rpy)"
+    left_arm_base_rpy="$(arg left_arm_base_rpy)"
+    can_fd="$(arg can_fd)"
+    parent="$(arg parent)"
+    xyz="$(arg xyz)"
+    rpy="$(arg rpy)"/>
+
+  <!-- LEFT ARM ASSEMBLY -->
   <!-- Include OpenArm robot (v10). This file exists. -->
   <xacro:include filename="$(find openarm_description)/urdf/robot/v10.urdf.xacro"/>
   
@@ -43,3 +112,4 @@
   </joint>
 
 </robot>
+
