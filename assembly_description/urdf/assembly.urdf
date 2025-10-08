@@ -26,6 +26,7 @@
   <xacro:arg name="orcahand_right_urdf" default="$(arg orcahand_description_path)/models/urdf/orcahand_right.urdf"/>
 
   <!-- Shared material definition used by the ORCA models. -->
+  <!-- Shared material definitions to avoid duplicate declarations in sub-URDFs -->
   <material name="white">
     <color rgba="1 1 1 1"/>
   </material>
@@ -36,7 +37,6 @@
   <xacro:include filename="$(arg orcahand_left_urdf)"/>
   <xacro:include filename="$(arg orcahand_right_urdf)"/>
 
-  <!-- The OpenArm macro will create the parent link/joint when body_connected_to is set. -->
   <xacro:openarm_robot
     arm_type="v10"
     body_type="v10"
@@ -62,7 +62,8 @@
     no_prefix="false"
     arm_prefix=""
     body_prefix=""
-    body_connected_to="$(arg parent)"
+    arm_connected_to="base"
+    body_connected_to="world"
     bimanual="$(arg bimanual)"
     right_arm_base_xyz="$(arg right_arm_base_xyz)"
     left_arm_base_xyz="$(arg left_arm_base_xyz)"
@@ -74,10 +75,23 @@
     rpy="$(arg rpy)"/>
 
   <!-- LEFT ARM ASSEMBLY -->
+  <!-- Include OpenArm robot (v10). This file exists. -->
+  <xacro:include filename="$(find openarm_description)/urdf/robot/v10.urdf.xacro"/>
+  
+  <!-- Include the connector macro -->
+  <xacro:include filename="$(find connectors_description)/urdf/connector.urdf.xacro"/>
+  
+  <!-- Include the ORCA hands as URDFs from installed models directory -->
+  <xacro:include filename="$(find orcahand_description)/models/urdf/orcahand_left.urdf"/>
+  <xacro:include filename="$(find orcahand_description)/models/urdf/orcahand_right.urdf"/>
+  
+  <!-- LEFT ARM ASSEMBLY -->
+  <!-- Attach left connector to left arm flange (link_7) -->
   <xacro:connector prefix="left_" parent="openarm_left_link7">
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </xacro:connector>
 
+  <!-- Attach left ORCA hand to left connector -->
   <joint name="left_hand_joint" type="fixed">
     <parent link="left_connector_link"/>
     <child link="left_tower"/>
@@ -85,10 +99,12 @@
   </joint>
 
   <!-- RIGHT ARM ASSEMBLY -->
+  <!-- Attach right connector to right arm flange (link_7) -->
   <xacro:connector prefix="right_" parent="openarm_right_link7">
     <origin xyz="0 0 0" rpy="0 0 0"/>
   </xacro:connector>
 
+  <!-- Attach right ORCA hand to right connector -->
   <joint name="right_hand_joint" type="fixed">
     <parent link="right_connector_link"/>
     <child link="right_tower"/>
