@@ -1,0 +1,2172 @@
+<?xml version="1.0"?>
+<!--
+  Flattened OpenArm + ORCA assembly.
+  All component macros are embedded directly to avoid secondary 'world' links.
+  Edit assembly_params.xacro to tune masses, inertias, joint limits, poses, and mesh paths.
+  Extend by adding new macros or link instantiations below the existing structure.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="orca_assembly">
+  <!-- Parameters -->
+  <xacro:include filename="$(find assembly_description)/urdf/assembly_params.xacro"/>
+
+  <!-- OpenArm core macros -->
+<xacro:macro name="openarm-inertials" params="name inertials:=^ reflect:=1">
+    <xacro:unless value="${name in inertials}">
+      ${xacro.warning('No inertia properties defined for: ' + name)}
+    </xacro:unless>
+    <xacro:if value="${name in inertials}">
+      <xacro:property name="I" value="${inertials[name]}" lazy_eval="false" />
+      <inertial>
+        <origin
+          xyz="${I.origin.x} ${reflect * I.origin.y} ${I.origin.z}"
+          rpy="${I.origin.roll} ${I.origin.pitch} ${I.origin.yaw}" />
+        <mass value="${I.mass}" />
+        <xacro:if value="${'inertia' in I}">
+          <xacro:property name="inert" value="${I.inertia}" />
+          <inertia ixx="${inert.xx}" ixy="${inert.xy}" ixz="${inert.xz}"
+                   iyy="${inert.yy}" iyz="${inert.yz}" izz="${inert.zz}" />
+        </xacro:if>
+      </inertial>
+    </xacro:if>
+  </xacro:macro>
+  <xacro:macro name="link_with_sc" params="name no_prefix:='false' rpy:='0 0 0' kinematics_link:='' reflect:=1 inertials:=^">
+    <!-- <xacro:property name="prefix" value="${'' if no_prefix else arm_prefix + arm_type + '_'}" /> -->
+    <xacro:property name="prefix" value="${'' if no_prefix else 'openarm' + '_' +  arm_prefix}" />
+    <link name="${prefix}${name}">
+      <visual name="${prefix}${name}_visual">
+        <xacro:openarm-kinematics-link config="${kinematics_link}" name="${name}" />
+        <geometry>
+          <mesh filename="package://${description_pkg}/meshes/arm/${arm_type}/visual/${name}.dae" scale="0.001 ${0.001*reflect} 0.001" />
+        </geometry>
+      </visual>
+      <collision name="${prefix}${name}_collision">
+        <xacro:openarm-kinematics-link config="${kinematics_link}" name="${name}" />
+        <geometry>
+          <mesh filename="package://openarm_description/meshes/arm/${arm_type}/collision/${name}_symp.stl" scale="0.001 ${0.001*reflect} 0.001" />
+          <!-- <mesh filename="package://openarm_description/meshes/arm/${arm_type}/collision/${name}.stl" scale="0.001 0.001 0.001" /> -->
+        </geometry>
+      </collision>
+      <xacro:openarm-inertials name="${name}" inertials="${inertials}" reflect="${reflect}" />
+    </link>
+  </xacro:macro>
+  <xacro:macro name="transmission-openarm-state" params="arm_type:=fer">
+    <transmission name="${arm_prefix}${arm_type}_openarm_state">
+      <type>openarm_hw/openarmStateInterface</type>
+      <joint name="${arm_prefix}${arm_type}_joint1"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></joint>
+      <joint name="${arm_prefix}${arm_type}_joint2"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></joint>
+      <joint name="${arm_prefix}${arm_type}_joint3"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></joint>
+      <joint name="${arm_prefix}${arm_type}_joint4"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></joint>
+      <joint name="${arm_prefix}${arm_type}_joint5"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></joint>
+      <joint name="${arm_prefix}${arm_type}_joint6"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></joint>
+      <joint name="${arm_prefix}${arm_type}_joint7"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></joint>
+      <actuator name="${arm_prefix}${arm_type}_motor1"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></actuator>
+      <actuator name="${arm_prefix}${arm_type}_motor2"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></actuator>
+      <actuator name="${arm_prefix}${arm_type}_motor3"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></actuator>
+      <actuator name="${arm_prefix}${arm_type}_motor4"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></actuator>
+      <actuator name="${arm_prefix}${arm_type}_motor5"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></actuator>
+      <actuator name="${arm_prefix}${arm_type}_motor6"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></actuator>
+      <actuator name="${arm_prefix}${arm_type}_motor7"><hardwareInterface>openarm_hw/openarmStateInterface</hardwareInterface></actuator>
+    </transmission>
+  </xacro:macro>
+  <xacro:macro name="transmission-openarm-model" params="arm_type:=v10 root:=v10_joint1 tip:=v10_joint7">
+    <transmission name="${arm_prefix}${arm_type}_openarm_model">
+      <type>openarm_hw/openarmModelInterface</type>
+      <joint name="${root}">
+        <role>root</role>
+        <hardwareInterface>openarm_hw/openarmModelInterface</hardwareInterface>
+      </joint>
+      <joint name="${tip}">
+        <role>tip</role>
+        <hardwareInterface>openarm_hw/openarmModelInterface</hardwareInterface>
+      </joint>
+      <actuator name="${root}_motor_root"><hardwareInterface>openarm_hw/openarmModelInterface</hardwareInterface></actuator>
+      <actuator name="${tip}_motor_tip"  ><hardwareInterface>openarm_hw/openarmModelInterface</hardwareInterface></actuator>
+    </transmission>
+  </xacro:macro>
+  <xacro:macro name="inertia-cylinder" params="mass radius h">
+    <inertial>
+      <mass value="${mass}" />
+      <inertia ixx="${1./12 * mass * (3 * radius**2 + h**2)}" ixy = "0" ixz = "0"
+               iyy="${1./12 * mass * (3 * radius**2 + h**2)}" iyz = "0"
+               izz="${1./2  * mass * radius**2}" />
+    </inertial>
+  </xacro:macro>
+  <xacro:macro name="openarm-limits" params="name config reflect:=1 offset:=0">
+    <xacro:property name="limits" value="${config[name]['limit']}"/>
+    <xacro:property name="raw_lower" value="${limits.lower * reflect + offset}" />
+    <xacro:property name="raw_upper" value="${limits.upper * reflect + offset}" />
+    <xacro:property name="lower" value="0.0" />
+    <xacro:property name="upper" value="0.0" />
+    <xacro:if value="${raw_lower &lt; raw_upper}">
+      <xacro:property name="lower" value="${raw_lower}" />
+      <xacro:property name="upper" value="${raw_upper}" />
+    </xacro:if>
+    <xacro:unless value="${raw_lower &lt; raw_upper}">
+      <xacro:property name="lower" value="${raw_upper}" />
+      <xacro:property name="upper" value="${raw_lower}" />
+    </xacro:unless>
+    <limit
+      lower="${lower}"
+      upper="${upper}"
+      effort="${limits.effort}"
+      velocity="${limits.velocity}" />
+  </xacro:macro>
+  <xacro:macro name="openarm-kinematics" params="name config offset:=none reflect:=1">
+    <xacro:property name="kinematics" value="${config[name]['kinematic']}" lazy_eval="false" />
+    <xacro:if value="${offset != 'none'}">
+      <xacro:property name="offset" value="${offset[name]['kinematic_offset']}" lazy_eval="false" />
+      <origin
+        xyz="${kinematics.x + offset.x} ${kinematics.y + offset.y} ${kinematics.z + offset.z}"
+        rpy="${reflect*(kinematics.roll + offset.roll)} ${reflect*(kinematics.pitch + offset.pitch)} ${reflect*(kinematics.yaw + offset.yaw)}" />
+    </xacro:if>
+    <xacro:unless value="${offset != 'none'}">
+      <origin
+        xyz="${kinematics.x} ${kinematics.y} ${kinematics.z}"
+        rpy="${reflect*kinematics.roll} ${reflect*kinematics.pitch} ${reflect*kinematics.yaw}" />
+    </xacro:unless>
+  </xacro:macro>
+  <xacro:macro name="openarm-kinematics-link" params="config name">
+    <xacro:property name="kinematics_link" value="${config[name]['kinematic']}" lazy_eval="false" />
+    <origin rpy="${kinematics_link.roll} ${kinematics_link.pitch} ${kinematics_link.yaw}"
+            xyz="${kinematics_link.x} ${kinematics_link.y} ${kinematics_link.z}" />
+  </xacro:macro>
+<xacro:macro name="openarm-body-inertials" params="name inertials:=^">
+      <xacro:unless value="${name in inertials}">${xacro.warning('No inertia properties defined for: ' + name)}</xacro:unless>
+      <xacro:if value="${name in inertials}">
+        <!-- Access inertia properties of link 'name' -->
+        <xacro:property name="link_inertials" value="${inertials[name]}" lazy_eval="false" />
+        <inertial>
+          <origin rpy="${link_inertials.origin.rpy}" xyz="${link_inertials.origin.xyz}" />
+          <mass value="${link_inertials.mass}" />
+          <xacro:if value="${'inertia' in link_inertials}">
+            <xacro:property name="I" value="${link_inertials.inertia}" />
+            <inertia ixx="${I.xx}" ixy="${I.xy}" ixz="${I.xz}" iyy="${I.yy}" iyz="${I.yz}" izz="${I.zz}" />
+          </xacro:if>
+        </inertial>
+      </xacro:if>
+  </xacro:macro>
+  <xacro:macro name="body_link_with_sc" params="name no_prefix:='false' rpy:='0 0 0' kinematics_link">
+    <!-- <xacro:property name="prefix" value="${'' if no_prefix else body_prefix + body_type + '_'}" /> -->
+    <xacro:property name="prefix" value="${'' if no_prefix else 'openarm' + '_' + body_prefix}" />
+    <link name="${prefix}${name}">
+      <visual name="${prefix}${name}_visual">
+        <xacro:openarm-body-kinematics config="${kinematics_link}" name="${name}" />
+        <geometry>
+          <mesh filename="package://${description_pkg}/meshes/body/${body_type}/visual/${name}.dae" scale="0.001 0.001 0.001" />
+        </geometry>
+      </visual>
+      <collision name="${prefix}${name}_collision">
+        <xacro:openarm-body-kinematics config="${kinematics_link}" name="${name}" />
+        <geometry>
+          <mesh filename="package://openarm_description/meshes/body/${body_type}/collision/${name}_symp.stl" scale="0.001 0.001 0.001" />
+          <!-- <mesh filename="package://openarm_description/meshes/arm/${arm_type}/collision/${name}.stl" scale="0.001 0.001 0.001" /> -->
+        </geometry>
+      </collision>
+      <xacro:openarm-body-inertials name="${name}" />
+    </link>
+  </xacro:macro>
+  <xacro:macro name="openarm-body-kinematics" params="config name">
+    <xacro:property name="kinematics" value="${config[name]['kinematic']}" lazy_eval="false" />
+    <origin rpy="${kinematics.roll} ${kinematics.pitch} ${kinematics.yaw}"
+          xyz="${kinematics.x} ${kinematics.y} ${kinematics.z}" />
+</xacro:macro>
+<xacro:macro name="openarm-body-kinematics-link" params="config name">
+  <xacro:property name="kinematics_link" value="${config[name]['kinematic']}" lazy_eval="false" />
+  <origin rpy="${kinematics_link.roll} ${kinematics_link.pitch} ${kinematics_link.yaw}"
+          xyz="${kinematics_link.x} ${kinematics_link.y} ${kinematics_link.z}" />
+</xacro:macro>
+  <xacro:macro name="assembly_openarm_body"
+                params="connected_to xyz rpy body_type:='v10' description_pkg:='openarm_description' inertials_cfg kinematics_cfg kinematics_link_cfg">
+    <xacro:property name="body_prefix" value=""/>
+    <xacro:property name="body_type" value="${body_type}"/>
+    <xacro:property name="description_pkg" value="${description_pkg}"/>
+    <xacro:property name="no_prefix" value="false"/>
+    <xacro:property name="inertials" value="${inertials_cfg}"/>
+    <xacro:property name="kinematics" value="${kinematics_cfg}"/>
+    <xacro:property name="kinematics_link" value="${kinematics_link_cfg}"/>
+    <xacro:property name="prefix" value="${'' if no_prefix else 'openarm_' + 'body_'}"/>
+    <joint name="${prefix}${connected_to}_joint" type="fixed">
+      <parent link="${connected_to}"/>
+      <child link="${prefix}link0"/>
+      <origin xyz="${xyz}" rpy="${rpy}"/>
+    </joint>
+    <xacro:body_link_with_sc name="body_link0" no_prefix="${no_prefix}" kinematics_link="${kinematics_link}"/>
+  </xacro:macro>
+<xacro:macro name="openarm_arm" params="arm_type arm_prefix:='' no_prefix:=false description_pkg:='openarm_description' connected_to:='base' xyz:='0 0 0' rpy:='0 0 0' joint_limits inertials kinematics kinematics_link kinematics_offset:=none " >
+    <xacro:property name="prefix" value="${'' if no_prefix else 'openarm' + '_' + arm_prefix}" />
+    <xacro:if value="${arm_prefix == 'right_'}">
+      <xacro:property name="reflect" value="1" />
+    </xacro:if>
+    <xacro:unless value="${arm_prefix == 'right_'}">
+      <xacro:property name="reflect" value="-1" />
+    </xacro:unless>
+    <xacro:unless value="${connected_to == ''}">
+      <joint name="${prefix}${connected_to}_joint" type="fixed">
+        <parent link="${connected_to}"/>
+        <child link="${prefix}link0"/>
+        <origin rpy="${rpy}" xyz="${xyz}"/>
+      </joint>
+    </xacro:unless>
+    <xacro:link_with_sc no_prefix="${no_prefix}" name="link0" kinematics_link="${kinematics_link}" inertials="${inertials}" reflect="${reflect}"/>
+    <xacro:link_with_sc no_prefix="${no_prefix}" name="link1" kinematics_link="${kinematics_link}" inertials="${inertials}" reflect="${reflect}"/>
+    <joint name="${prefix}joint1" type="revolute">
+      <xacro:openarm-kinematics name="joint1" config="${kinematics}" reflect="${reflect}"/>
+      <parent link="${prefix}link0" />
+      <child link="${prefix}link1" />
+      <axis xyz="0 0 1" />
+      <xacro:openarm-limits name="joint1" config="${joint_limits}" offset="${-2.094396 if arm_prefix=='left_' else 0}"/>
+    </joint>
+    <!-- for bimanual offset -->
+    <xacro:link_with_sc no_prefix="${no_prefix}" name="link2" kinematics_link="${kinematics_link}" inertials="${inertials}" reflect="${reflect}"/>
+    <xacro:property name="limit_offset_joint2" value="0" />
+    <xacro:if value="${prefix.find('right_') != -1}">
+      <xacro:property name="limit_offset_joint2" value="${pi/2}" />
+    </xacro:if>
+    <xacro:if value="${prefix.find('left_') != -1}">
+      <xacro:property name="limit_offset_joint2" value="${-pi/2}" />
+    </xacro:if>
+    <joint name="${prefix}joint2" type="revolute">
+      <xacro:openarm-kinematics name="joint2" config="${kinematics}" offset="${kinematics_offset}" reflect="${reflect}"/>
+      <parent link="${prefix}link1" />
+      <child link="${prefix}link2" />
+      <axis xyz="-1 0 0" />
+      <xacro:openarm-limits name="joint2" config="${joint_limits}" reflect="${reflect}" offset="${limit_offset_joint2}"/>
+    </joint>
+    <xacro:link_with_sc no_prefix="${no_prefix}" name="link3" kinematics_link="${kinematics_link}" inertials="${inertials}" reflect="${reflect}"/>
+    <joint name="${prefix}joint3" type="revolute">
+      <xacro:openarm-kinematics name="joint3" config="${kinematics}" />
+      <parent link="${prefix}link2" />
+      <child link="${prefix}link3" />
+      <axis xyz="0 0 1" />
+      <xacro:openarm-limits name="joint3" config="${joint_limits}" />
+    </joint>
+    <xacro:link_with_sc no_prefix="${no_prefix}" name="link4" kinematics_link="${kinematics_link}" />
+    <joint name="${prefix}joint4" type="revolute">
+      <xacro:openarm-kinematics name="joint4" config="${kinematics}" />
+      <parent link="${prefix}link3" />
+      <child link="${prefix}link4" />
+      <axis xyz="0 1 0" />
+      <xacro:openarm-limits name="joint4" config="${joint_limits}" />
+    </joint>
+    <xacro:link_with_sc no_prefix="${no_prefix}" name="link5" kinematics_link="${kinematics_link}" inertials="${inertials}" reflect="${reflect}" />
+    <joint name="${prefix}joint5" type="revolute">
+      <xacro:openarm-kinematics name="joint5" config="${kinematics}" />
+      <parent link="${prefix}link4" />
+      <child link="${prefix}link5" />
+      <axis xyz="0 0 1" />
+      <xacro:openarm-limits name="joint5" config="${joint_limits}" />
+    </joint>
+    <xacro:link_with_sc no_prefix="${no_prefix}" name="link6" kinematics_link="${kinematics_link}" inertials="${inertials}" reflect="${reflect}"/>
+    <joint name="${prefix}joint6" type="revolute">
+      <xacro:openarm-kinematics name="joint6" config="${kinematics}" />
+      <parent link="${prefix}link5" />
+      <child link="${prefix}link6" />
+      <axis xyz="1 0 0" />
+      <xacro:openarm-limits name="joint6" config="${joint_limits}" />
+    </joint>
+    <xacro:link_with_sc no_prefix="${no_prefix}" name="link7" kinematics_link="${kinematics_link}" inertials="${inertials}" reflect="${reflect}"/>
+    <joint name="${prefix}joint7" type="revolute">
+      <xacro:openarm-kinematics name="joint7" config="${kinematics}" />
+      <parent link="${prefix}link6"/>
+      <child link="${prefix}link7"/>
+      <axis xyz="0 ${reflect} 0"/>
+      <xacro:openarm-limits name="joint7" config="${joint_limits}" />
+    </joint>
+    <!-- <link name="${prefix}link8"/>
+    <joint name="${prefix}joint8" type="fixed">
+      <xacro:openarm-kinematics name="joint8" config="${kinematics}" />
+      <parent link="${prefix}link7" />
+      <child link="${prefix}link8" />
+    </joint> -->
+  </xacro:macro>
+  <!-- Connector macro -->
+<xacro:macro name="connector_module" params="prefix parent_link origin_xyz:='${connector_origin_xyz}' origin_rpy:='${connector_origin_rpy}'">
+    <link name="${prefix}_connector_link">
+      <visual>
+        <origin xyz="${origin_xyz}" rpy="${origin_rpy}"/>
+        <geometry>
+          <mesh filename="${connector_mesh}"/>
+        </geometry>
+        <material name="mat_grey"/>
+      </visual>
+      <collision>
+        <origin xyz="${origin_xyz}" rpy="${origin_rpy}"/>
+        <geometry>
+          <mesh filename="${connector_mesh}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="${connector_origin_xyz}" rpy="${connector_origin_rpy}"/>
+        <mass value="${connector_mass}"/>
+        <inertia ixx="${connector_inertia_ixx}" ixy="${connector_inertia_ixy}" ixz="${connector_inertia_ixz}"
+                 iyy="${connector_inertia_iyy}" iyz="${connector_inertia_iyz}" izz="${connector_inertia_izz}"/>
+      </inertial>
+    </link>
+    <joint name="${prefix}_connector_joint" type="fixed">
+      <parent link="${parent_link}"/>
+      <child link="${prefix}_connector_link"/>
+      <origin xyz="${origin_xyz}" rpy="${origin_rpy}"/>
+    </joint>
+  </xacro:macro>
+  <!-- OrcaHand macros -->
+<xacro:macro name="orcahand_left_module" params="parent_link">
+    <xacro:property name="hand_prefix" value="left_"/>
+    <link name="left_tower">
+      <inertial>
+        <origin xyz="${orcahand_left_left_tower_inertial_origin_xyz}" rpy="${orcahand_left_left_tower_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_tower_mass}"/>
+        <inertia ixx="${orcahand_left_left_tower_inertia_ixx}" ixy="${orcahand_left_left_tower_inertia_ixy}" ixz="${orcahand_left_left_tower_inertia_ixz}" iyy="${orcahand_left_left_tower_inertia_iyy}" iyz="${orcahand_left_left_tower_inertia_iyz}" izz="${orcahand_left_left_tower_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_tower_main_mesh">
+        <origin xyz="${orcahand_left_left_tower_visual_left_visual_tower_main_mesh_origin_xyz}" rpy="${orcahand_left_left_tower_visual_left_visual_tower_main_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_tower_visual_left_visual_tower_main_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_tower_visual_left_visual_tower_main_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_tower_hull_mesh">
+        <origin xyz="${orcahand_left_left_tower_visual_left_visual_tower_hull_mesh_origin_xyz}" rpy="${orcahand_left_left_tower_visual_left_visual_tower_hull_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_tower_visual_left_visual_tower_hull_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_tower_visual_left_visual_tower_hull_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_tower_text_mesh">
+        <origin xyz="${orcahand_left_left_tower_visual_left_visual_tower_text_mesh_origin_xyz}" rpy="${orcahand_left_left_tower_visual_left_visual_tower_text_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_tower_visual_left_visual_tower_text_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_tower_visual_left_visual_tower_text_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_tower_main_mesh">
+        <origin xyz="${orcahand_left_left_tower_collision_left_collision_tower_main_mesh_origin_xyz}" rpy="${orcahand_left_left_tower_collision_left_collision_tower_main_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_tower_collision_left_collision_tower_main_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_tower_hull_mesh">
+        <origin xyz="${orcahand_left_left_tower_collision_left_collision_tower_hull_mesh_origin_xyz}" rpy="${orcahand_left_left_tower_collision_left_collision_tower_hull_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_tower_collision_left_collision_tower_hull_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_tower_text_mesh">
+        <origin xyz="${orcahand_left_left_tower_collision_left_collision_tower_text_mesh_origin_xyz}" rpy="${orcahand_left_left_tower_collision_left_collision_tower_text_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_tower_collision_left_collision_tower_text_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_palm">
+      <inertial>
+        <origin xyz="${orcahand_left_left_palm_inertial_origin_xyz}" rpy="${orcahand_left_left_palm_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_palm_mass}"/>
+        <inertia ixx="${orcahand_left_left_palm_inertia_ixx}" ixy="${orcahand_left_left_palm_inertia_ixy}" ixz="${orcahand_left_left_palm_inertia_ixz}" iyy="${orcahand_left_left_palm_inertia_iyy}" iyz="${orcahand_left_left_palm_inertia_iyz}" izz="${orcahand_left_left_palm_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_palm_mesh">
+        <origin xyz="${orcahand_left_left_palm_visual_left_visual_palm_mesh_origin_xyz}" rpy="${orcahand_left_left_palm_visual_left_visual_palm_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_palm_visual_left_visual_palm_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_palm_visual_left_visual_palm_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_palm_skin_mesh">
+        <origin xyz="${orcahand_left_left_palm_visual_left_visual_palm_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_palm_visual_left_visual_palm_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_palm_visual_left_visual_palm_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_palm_visual_left_visual_palm_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_palm_mesh">
+        <origin xyz="${orcahand_left_left_palm_collision_left_collision_palm_mesh_origin_xyz}" rpy="${orcahand_left_left_palm_collision_left_collision_palm_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_palm_collision_left_collision_palm_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_palm_skin_mesh">
+        <origin xyz="${orcahand_left_left_palm_collision_left_collision_palm_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_palm_collision_left_collision_palm_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_palm_collision_left_collision_palm_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_wrist_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_wrist_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_wrist_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_wrist_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_wrist_jointbody_inertia_ixx}" ixy="${orcahand_left_left_wrist_jointbody_inertia_ixy}" ixz="${orcahand_left_left_wrist_jointbody_inertia_ixz}" iyy="${orcahand_left_left_wrist_jointbody_inertia_iyy}" iyz="${orcahand_left_left_wrist_jointbody_inertia_iyz}" izz="${orcahand_left_left_wrist_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_thumb_mp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_mp_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_mp_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_mp_inertia_ixx}" ixy="${orcahand_left_left_thumb_mp_inertia_ixy}" ixz="${orcahand_left_left_thumb_mp_inertia_ixz}" iyy="${orcahand_left_left_thumb_mp_inertia_iyy}" iyz="${orcahand_left_left_thumb_mp_inertia_iyz}" izz="${orcahand_left_left_thumb_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_thumb_mp_mesh">
+        <origin xyz="${orcahand_left_left_thumb_mp_visual_left_visual_thumb_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_mp_visual_left_visual_thumb_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_mp_visual_left_visual_thumb_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_thumb_mp_visual_left_visual_thumb_mp_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_thumb_mp_mesh">
+        <origin xyz="${orcahand_left_left_thumb_mp_collision_left_collision_thumb_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_mp_collision_left_collision_thumb_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_mp_collision_left_collision_thumb_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_thumb_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_mcp_jointbody_inertia_ixx}" ixy="${orcahand_left_left_thumb_mcp_jointbody_inertia_ixy}" ixz="${orcahand_left_left_thumb_mcp_jointbody_inertia_ixz}" iyy="${orcahand_left_left_thumb_mcp_jointbody_inertia_iyy}" iyz="${orcahand_left_left_thumb_mcp_jointbody_inertia_iyz}" izz="${orcahand_left_left_thumb_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_thumb_pp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_pp_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_pp_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_pp_inertia_ixx}" ixy="${orcahand_left_left_thumb_pp_inertia_ixy}" ixz="${orcahand_left_left_thumb_pp_inertia_ixz}" iyy="${orcahand_left_left_thumb_pp_inertia_iyy}" iyz="${orcahand_left_left_thumb_pp_inertia_iyz}" izz="${orcahand_left_left_thumb_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_thumb_pp_mesh">
+        <origin xyz="${orcahand_left_left_thumb_pp_visual_left_visual_thumb_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_pp_visual_left_visual_thumb_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_pp_visual_left_visual_thumb_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_thumb_pp_visual_left_visual_thumb_pp_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_thumb_pp_mesh">
+        <origin xyz="${orcahand_left_left_thumb_pp_collision_left_collision_thumb_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_pp_collision_left_collision_thumb_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_pp_collision_left_collision_thumb_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_thumb_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_abd_jointbody_inertia_ixx}" ixy="${orcahand_left_left_thumb_abd_jointbody_inertia_ixy}" ixz="${orcahand_left_left_thumb_abd_jointbody_inertia_ixz}" iyy="${orcahand_left_left_thumb_abd_jointbody_inertia_iyy}" iyz="${orcahand_left_left_thumb_abd_jointbody_inertia_iyz}" izz="${orcahand_left_left_thumb_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_thumb_ip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_ip_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_ip_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_ip_inertia_ixx}" ixy="${orcahand_left_left_thumb_ip_inertia_ixy}" ixz="${orcahand_left_left_thumb_ip_inertia_ixz}" iyy="${orcahand_left_left_thumb_ip_inertia_iyy}" iyz="${orcahand_left_left_thumb_ip_inertia_iyz}" izz="${orcahand_left_left_thumb_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_thumb_ip_mesh">
+        <origin xyz="${orcahand_left_left_thumb_ip_visual_left_visual_thumb_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_ip_visual_left_visual_thumb_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_ip_visual_left_visual_thumb_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_thumb_ip_visual_left_visual_thumb_ip_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_thumb_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_thumb_ip_visual_left_visual_thumb_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_ip_visual_left_visual_thumb_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_ip_visual_left_visual_thumb_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_thumb_ip_visual_left_visual_thumb_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_thumb_ip_mesh">
+        <origin xyz="${orcahand_left_left_thumb_ip_collision_left_collision_thumb_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_ip_collision_left_collision_thumb_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_ip_collision_left_collision_thumb_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_thumb_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_thumb_ip_collision_left_collision_thumb_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_ip_collision_left_collision_thumb_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_ip_collision_left_collision_thumb_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_thumb_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_pip_jointbody_inertia_ixx}" ixy="${orcahand_left_left_thumb_pip_jointbody_inertia_ixy}" ixz="${orcahand_left_left_thumb_pip_jointbody_inertia_ixz}" iyy="${orcahand_left_left_thumb_pip_jointbody_inertia_iyy}" iyz="${orcahand_left_left_thumb_pip_jointbody_inertia_iyz}" izz="${orcahand_left_left_thumb_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_thumb_dp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_dp_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_dp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_dp_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_dp_inertia_ixx}" ixy="${orcahand_left_left_thumb_dp_inertia_ixy}" ixz="${orcahand_left_left_thumb_dp_inertia_ixz}" iyy="${orcahand_left_left_thumb_dp_inertia_iyy}" iyz="${orcahand_left_left_thumb_dp_inertia_iyz}" izz="${orcahand_left_left_thumb_dp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_thumb_dp_mesh">
+        <origin xyz="${orcahand_left_left_thumb_dp_visual_left_visual_thumb_dp_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_dp_visual_left_visual_thumb_dp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_dp_visual_left_visual_thumb_dp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_thumb_dp_visual_left_visual_thumb_dp_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_thumb_dp_skin_mesh">
+        <origin xyz="${orcahand_left_left_thumb_dp_visual_left_visual_thumb_dp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_dp_visual_left_visual_thumb_dp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_dp_visual_left_visual_thumb_dp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_thumb_dp_visual_left_visual_thumb_dp_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_thumb_dp_mesh">
+        <origin xyz="${orcahand_left_left_thumb_dp_collision_left_collision_thumb_dp_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_dp_collision_left_collision_thumb_dp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_dp_collision_left_collision_thumb_dp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_thumb_dp_skin_mesh">
+        <origin xyz="${orcahand_left_left_thumb_dp_collision_left_collision_thumb_dp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_thumb_dp_collision_left_collision_thumb_dp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_thumb_dp_collision_left_collision_thumb_dp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_thumb_dip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_dip_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_dip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_dip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_dip_jointbody_inertia_ixx}" ixy="${orcahand_left_left_thumb_dip_jointbody_inertia_ixy}" ixz="${orcahand_left_left_thumb_dip_jointbody_inertia_ixz}" iyy="${orcahand_left_left_thumb_dip_jointbody_inertia_iyy}" iyz="${orcahand_left_left_thumb_dip_jointbody_inertia_iyz}" izz="${orcahand_left_left_thumb_dip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_thumb_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_thumb_fingertip_inertial_origin_xyz}" rpy="${orcahand_left_left_thumb_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_thumb_fingertip_mass}"/>
+        <inertia ixx="${orcahand_left_left_thumb_fingertip_inertia_ixx}" ixy="${orcahand_left_left_thumb_fingertip_inertia_ixy}" ixz="${orcahand_left_left_thumb_fingertip_inertia_ixz}" iyy="${orcahand_left_left_thumb_fingertip_inertia_iyy}" iyz="${orcahand_left_left_thumb_fingertip_inertia_iyz}" izz="${orcahand_left_left_thumb_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_index_mp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_index_mp_inertial_origin_xyz}" rpy="${orcahand_left_left_index_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_index_mp_mass}"/>
+        <inertia ixx="${orcahand_left_left_index_mp_inertia_ixx}" ixy="${orcahand_left_left_index_mp_inertia_ixy}" ixz="${orcahand_left_left_index_mp_inertia_ixz}" iyy="${orcahand_left_left_index_mp_inertia_iyy}" iyz="${orcahand_left_left_index_mp_inertia_iyz}" izz="${orcahand_left_left_index_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_index_mp_mesh">
+        <origin xyz="${orcahand_left_left_index_mp_visual_left_visual_index_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_index_mp_visual_left_visual_index_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_mp_visual_left_visual_index_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_index_mp_visual_left_visual_index_mp_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_index_mp_mesh">
+        <origin xyz="${orcahand_left_left_index_mp_collision_left_collision_index_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_index_mp_collision_left_collision_index_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_mp_collision_left_collision_index_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_index_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_index_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_index_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_index_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_index_abd_jointbody_inertia_ixx}" ixy="${orcahand_left_left_index_abd_jointbody_inertia_ixy}" ixz="${orcahand_left_left_index_abd_jointbody_inertia_ixz}" iyy="${orcahand_left_left_index_abd_jointbody_inertia_iyy}" iyz="${orcahand_left_left_index_abd_jointbody_inertia_iyz}" izz="${orcahand_left_left_index_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_index_pp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_index_pp_inertial_origin_xyz}" rpy="${orcahand_left_left_index_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_index_pp_mass}"/>
+        <inertia ixx="${orcahand_left_left_index_pp_inertia_ixx}" ixy="${orcahand_left_left_index_pp_inertia_ixy}" ixz="${orcahand_left_left_index_pp_inertia_ixz}" iyy="${orcahand_left_left_index_pp_inertia_iyy}" iyz="${orcahand_left_left_index_pp_inertia_iyz}" izz="${orcahand_left_left_index_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_index_pp_mesh">
+        <origin xyz="${orcahand_left_left_index_pp_visual_left_visual_index_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_index_pp_visual_left_visual_index_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_pp_visual_left_visual_index_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_index_pp_visual_left_visual_index_pp_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_index_pp_skin_mesh">
+        <origin xyz="${orcahand_left_left_index_pp_visual_left_visual_index_pp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_index_pp_visual_left_visual_index_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_pp_visual_left_visual_index_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_index_pp_visual_left_visual_index_pp_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_index_pp_mesh">
+        <origin xyz="${orcahand_left_left_index_pp_collision_left_collision_index_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_index_pp_collision_left_collision_index_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_pp_collision_left_collision_index_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_index_pp_skin_mesh">
+        <origin xyz="${orcahand_left_left_index_pp_collision_left_collision_index_pp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_index_pp_collision_left_collision_index_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_pp_collision_left_collision_index_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_index_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_index_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_index_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_index_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_index_mcp_jointbody_inertia_ixx}" ixy="${orcahand_left_left_index_mcp_jointbody_inertia_ixy}" ixz="${orcahand_left_left_index_mcp_jointbody_inertia_ixz}" iyy="${orcahand_left_left_index_mcp_jointbody_inertia_iyy}" iyz="${orcahand_left_left_index_mcp_jointbody_inertia_iyz}" izz="${orcahand_left_left_index_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_index_ip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_index_ip_inertial_origin_xyz}" rpy="${orcahand_left_left_index_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_index_ip_mass}"/>
+        <inertia ixx="${orcahand_left_left_index_ip_inertia_ixx}" ixy="${orcahand_left_left_index_ip_inertia_ixy}" ixz="${orcahand_left_left_index_ip_inertia_ixz}" iyy="${orcahand_left_left_index_ip_inertia_iyy}" iyz="${orcahand_left_left_index_ip_inertia_iyz}" izz="${orcahand_left_left_index_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_index_ip_mesh">
+        <origin xyz="${orcahand_left_left_index_ip_visual_left_visual_index_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_index_ip_visual_left_visual_index_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_ip_visual_left_visual_index_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_index_ip_visual_left_visual_index_ip_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_index_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_index_ip_visual_left_visual_index_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_index_ip_visual_left_visual_index_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_ip_visual_left_visual_index_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_index_ip_visual_left_visual_index_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_index_ip_mesh">
+        <origin xyz="${orcahand_left_left_index_ip_collision_left_collision_index_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_index_ip_collision_left_collision_index_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_ip_collision_left_collision_index_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_index_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_index_ip_collision_left_collision_index_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_index_ip_collision_left_collision_index_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_index_ip_collision_left_collision_index_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_index_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_index_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_index_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_index_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_index_pip_jointbody_inertia_ixx}" ixy="${orcahand_left_left_index_pip_jointbody_inertia_ixy}" ixz="${orcahand_left_left_index_pip_jointbody_inertia_ixz}" iyy="${orcahand_left_left_index_pip_jointbody_inertia_iyy}" iyz="${orcahand_left_left_index_pip_jointbody_inertia_iyz}" izz="${orcahand_left_left_index_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_index_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_index_fingertip_inertial_origin_xyz}" rpy="${orcahand_left_left_index_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_index_fingertip_mass}"/>
+        <inertia ixx="${orcahand_left_left_index_fingertip_inertia_ixx}" ixy="${orcahand_left_left_index_fingertip_inertia_ixy}" ixz="${orcahand_left_left_index_fingertip_inertia_ixz}" iyy="${orcahand_left_left_index_fingertip_inertia_iyy}" iyz="${orcahand_left_left_index_fingertip_inertia_iyz}" izz="${orcahand_left_left_index_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_middle_mp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_middle_mp_inertial_origin_xyz}" rpy="${orcahand_left_left_middle_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_middle_mp_mass}"/>
+        <inertia ixx="${orcahand_left_left_middle_mp_inertia_ixx}" ixy="${orcahand_left_left_middle_mp_inertia_ixy}" ixz="${orcahand_left_left_middle_mp_inertia_ixz}" iyy="${orcahand_left_left_middle_mp_inertia_iyy}" iyz="${orcahand_left_left_middle_mp_inertia_iyz}" izz="${orcahand_left_left_middle_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_middle_mp_mesh">
+        <origin xyz="${orcahand_left_left_middle_mp_visual_left_visual_middle_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_mp_visual_left_visual_middle_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_mp_visual_left_visual_middle_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_middle_mp_visual_left_visual_middle_mp_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_middle_mp_mesh">
+        <origin xyz="${orcahand_left_left_middle_mp_collision_left_collision_middle_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_mp_collision_left_collision_middle_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_mp_collision_left_collision_middle_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_middle_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_middle_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_middle_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_middle_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_middle_abd_jointbody_inertia_ixx}" ixy="${orcahand_left_left_middle_abd_jointbody_inertia_ixy}" ixz="${orcahand_left_left_middle_abd_jointbody_inertia_ixz}" iyy="${orcahand_left_left_middle_abd_jointbody_inertia_iyy}" iyz="${orcahand_left_left_middle_abd_jointbody_inertia_iyz}" izz="${orcahand_left_left_middle_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_middle_pp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_middle_pp_inertial_origin_xyz}" rpy="${orcahand_left_left_middle_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_middle_pp_mass}"/>
+        <inertia ixx="${orcahand_left_left_middle_pp_inertia_ixx}" ixy="${orcahand_left_left_middle_pp_inertia_ixy}" ixz="${orcahand_left_left_middle_pp_inertia_ixz}" iyy="${orcahand_left_left_middle_pp_inertia_iyy}" iyz="${orcahand_left_left_middle_pp_inertia_iyz}" izz="${orcahand_left_left_middle_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_middle_pp_mesh">
+        <origin xyz="${orcahand_left_left_middle_pp_visual_left_visual_middle_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_pp_visual_left_visual_middle_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_pp_visual_left_visual_middle_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_middle_pp_visual_left_visual_middle_pp_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_middle_pp_skin_mesh">
+        <origin xyz="${orcahand_left_left_middle_pp_visual_left_visual_middle_pp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_pp_visual_left_visual_middle_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_pp_visual_left_visual_middle_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_middle_pp_visual_left_visual_middle_pp_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_middle_pp_mesh">
+        <origin xyz="${orcahand_left_left_middle_pp_collision_left_collision_middle_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_pp_collision_left_collision_middle_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_pp_collision_left_collision_middle_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_middle_pp_skin_mesh">
+        <origin xyz="${orcahand_left_left_middle_pp_collision_left_collision_middle_pp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_pp_collision_left_collision_middle_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_pp_collision_left_collision_middle_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_middle_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_middle_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_middle_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_middle_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_middle_mcp_jointbody_inertia_ixx}" ixy="${orcahand_left_left_middle_mcp_jointbody_inertia_ixy}" ixz="${orcahand_left_left_middle_mcp_jointbody_inertia_ixz}" iyy="${orcahand_left_left_middle_mcp_jointbody_inertia_iyy}" iyz="${orcahand_left_left_middle_mcp_jointbody_inertia_iyz}" izz="${orcahand_left_left_middle_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_middle_ip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_middle_ip_inertial_origin_xyz}" rpy="${orcahand_left_left_middle_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_middle_ip_mass}"/>
+        <inertia ixx="${orcahand_left_left_middle_ip_inertia_ixx}" ixy="${orcahand_left_left_middle_ip_inertia_ixy}" ixz="${orcahand_left_left_middle_ip_inertia_ixz}" iyy="${orcahand_left_left_middle_ip_inertia_iyy}" iyz="${orcahand_left_left_middle_ip_inertia_iyz}" izz="${orcahand_left_left_middle_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_middle_ip_mesh">
+        <origin xyz="${orcahand_left_left_middle_ip_visual_left_visual_middle_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_ip_visual_left_visual_middle_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_ip_visual_left_visual_middle_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_middle_ip_visual_left_visual_middle_ip_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_middle_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_middle_ip_visual_left_visual_middle_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_ip_visual_left_visual_middle_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_ip_visual_left_visual_middle_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_middle_ip_visual_left_visual_middle_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_middle_ip_mesh">
+        <origin xyz="${orcahand_left_left_middle_ip_collision_left_collision_middle_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_ip_collision_left_collision_middle_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_ip_collision_left_collision_middle_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_middle_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_middle_ip_collision_left_collision_middle_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_middle_ip_collision_left_collision_middle_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_middle_ip_collision_left_collision_middle_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_middle_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_middle_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_middle_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_middle_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_middle_pip_jointbody_inertia_ixx}" ixy="${orcahand_left_left_middle_pip_jointbody_inertia_ixy}" ixz="${orcahand_left_left_middle_pip_jointbody_inertia_ixz}" iyy="${orcahand_left_left_middle_pip_jointbody_inertia_iyy}" iyz="${orcahand_left_left_middle_pip_jointbody_inertia_iyz}" izz="${orcahand_left_left_middle_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_middle_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_middle_fingertip_inertial_origin_xyz}" rpy="${orcahand_left_left_middle_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_middle_fingertip_mass}"/>
+        <inertia ixx="${orcahand_left_left_middle_fingertip_inertia_ixx}" ixy="${orcahand_left_left_middle_fingertip_inertia_ixy}" ixz="${orcahand_left_left_middle_fingertip_inertia_ixz}" iyy="${orcahand_left_left_middle_fingertip_inertia_iyy}" iyz="${orcahand_left_left_middle_fingertip_inertia_iyz}" izz="${orcahand_left_left_middle_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_ring_mp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_ring_mp_inertial_origin_xyz}" rpy="${orcahand_left_left_ring_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_ring_mp_mass}"/>
+        <inertia ixx="${orcahand_left_left_ring_mp_inertia_ixx}" ixy="${orcahand_left_left_ring_mp_inertia_ixy}" ixz="${orcahand_left_left_ring_mp_inertia_ixz}" iyy="${orcahand_left_left_ring_mp_inertia_iyy}" iyz="${orcahand_left_left_ring_mp_inertia_iyz}" izz="${orcahand_left_left_ring_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_ring_mp_mesh">
+        <origin xyz="${orcahand_left_left_ring_mp_visual_left_visual_ring_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_mp_visual_left_visual_ring_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_mp_visual_left_visual_ring_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_ring_mp_visual_left_visual_ring_mp_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_ring_mp_mesh">
+        <origin xyz="${orcahand_left_left_ring_mp_collision_left_collision_ring_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_mp_collision_left_collision_ring_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_mp_collision_left_collision_ring_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_ring_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_ring_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_ring_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_ring_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_ring_abd_jointbody_inertia_ixx}" ixy="${orcahand_left_left_ring_abd_jointbody_inertia_ixy}" ixz="${orcahand_left_left_ring_abd_jointbody_inertia_ixz}" iyy="${orcahand_left_left_ring_abd_jointbody_inertia_iyy}" iyz="${orcahand_left_left_ring_abd_jointbody_inertia_iyz}" izz="${orcahand_left_left_ring_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_ring_pp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_ring_pp_inertial_origin_xyz}" rpy="${orcahand_left_left_ring_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_ring_pp_mass}"/>
+        <inertia ixx="${orcahand_left_left_ring_pp_inertia_ixx}" ixy="${orcahand_left_left_ring_pp_inertia_ixy}" ixz="${orcahand_left_left_ring_pp_inertia_ixz}" iyy="${orcahand_left_left_ring_pp_inertia_iyy}" iyz="${orcahand_left_left_ring_pp_inertia_iyz}" izz="${orcahand_left_left_ring_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_ring_pp_mesh">
+        <origin xyz="${orcahand_left_left_ring_pp_visual_left_visual_ring_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_pp_visual_left_visual_ring_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_pp_visual_left_visual_ring_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_ring_pp_visual_left_visual_ring_pp_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_ring_pp_skin_mesh">
+        <origin xyz="${orcahand_left_left_ring_pp_visual_left_visual_ring_pp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_pp_visual_left_visual_ring_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_pp_visual_left_visual_ring_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_ring_pp_visual_left_visual_ring_pp_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_ring_pp_mesh">
+        <origin xyz="${orcahand_left_left_ring_pp_collision_left_collision_ring_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_pp_collision_left_collision_ring_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_pp_collision_left_collision_ring_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_ring_pp_skin_mesh">
+        <origin xyz="${orcahand_left_left_ring_pp_collision_left_collision_ring_pp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_pp_collision_left_collision_ring_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_pp_collision_left_collision_ring_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_ring_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_ring_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_ring_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_ring_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_ring_mcp_jointbody_inertia_ixx}" ixy="${orcahand_left_left_ring_mcp_jointbody_inertia_ixy}" ixz="${orcahand_left_left_ring_mcp_jointbody_inertia_ixz}" iyy="${orcahand_left_left_ring_mcp_jointbody_inertia_iyy}" iyz="${orcahand_left_left_ring_mcp_jointbody_inertia_iyz}" izz="${orcahand_left_left_ring_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_ring_ip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_ring_ip_inertial_origin_xyz}" rpy="${orcahand_left_left_ring_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_ring_ip_mass}"/>
+        <inertia ixx="${orcahand_left_left_ring_ip_inertia_ixx}" ixy="${orcahand_left_left_ring_ip_inertia_ixy}" ixz="${orcahand_left_left_ring_ip_inertia_ixz}" iyy="${orcahand_left_left_ring_ip_inertia_iyy}" iyz="${orcahand_left_left_ring_ip_inertia_iyz}" izz="${orcahand_left_left_ring_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_ring_ip_mesh">
+        <origin xyz="${orcahand_left_left_ring_ip_visual_left_visual_ring_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_ip_visual_left_visual_ring_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_ip_visual_left_visual_ring_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_ring_ip_visual_left_visual_ring_ip_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_ring_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_ring_ip_visual_left_visual_ring_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_ip_visual_left_visual_ring_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_ip_visual_left_visual_ring_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_ring_ip_visual_left_visual_ring_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_ring_ip_mesh">
+        <origin xyz="${orcahand_left_left_ring_ip_collision_left_collision_ring_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_ip_collision_left_collision_ring_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_ip_collision_left_collision_ring_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_ring_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_ring_ip_collision_left_collision_ring_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_ring_ip_collision_left_collision_ring_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_ring_ip_collision_left_collision_ring_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_ring_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_ring_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_ring_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_ring_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_ring_pip_jointbody_inertia_ixx}" ixy="${orcahand_left_left_ring_pip_jointbody_inertia_ixy}" ixz="${orcahand_left_left_ring_pip_jointbody_inertia_ixz}" iyy="${orcahand_left_left_ring_pip_jointbody_inertia_iyy}" iyz="${orcahand_left_left_ring_pip_jointbody_inertia_iyz}" izz="${orcahand_left_left_ring_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_ring_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_ring_fingertip_inertial_origin_xyz}" rpy="${orcahand_left_left_ring_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_ring_fingertip_mass}"/>
+        <inertia ixx="${orcahand_left_left_ring_fingertip_inertia_ixx}" ixy="${orcahand_left_left_ring_fingertip_inertia_ixy}" ixz="${orcahand_left_left_ring_fingertip_inertia_ixz}" iyy="${orcahand_left_left_ring_fingertip_inertia_iyy}" iyz="${orcahand_left_left_ring_fingertip_inertia_iyz}" izz="${orcahand_left_left_ring_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_pinky_mp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_pinky_mp_inertial_origin_xyz}" rpy="${orcahand_left_left_pinky_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_pinky_mp_mass}"/>
+        <inertia ixx="${orcahand_left_left_pinky_mp_inertia_ixx}" ixy="${orcahand_left_left_pinky_mp_inertia_ixy}" ixz="${orcahand_left_left_pinky_mp_inertia_ixz}" iyy="${orcahand_left_left_pinky_mp_inertia_iyy}" iyz="${orcahand_left_left_pinky_mp_inertia_iyz}" izz="${orcahand_left_left_pinky_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_pinky_mp_mesh">
+        <origin xyz="${orcahand_left_left_pinky_mp_visual_left_visual_pinky_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_mp_visual_left_visual_pinky_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_mp_visual_left_visual_pinky_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_pinky_mp_visual_left_visual_pinky_mp_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_pinky_mp_mesh">
+        <origin xyz="${orcahand_left_left_pinky_mp_collision_left_collision_pinky_mp_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_mp_collision_left_collision_pinky_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_mp_collision_left_collision_pinky_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_pinky_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_pinky_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_pinky_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_pinky_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_pinky_abd_jointbody_inertia_ixx}" ixy="${orcahand_left_left_pinky_abd_jointbody_inertia_ixy}" ixz="${orcahand_left_left_pinky_abd_jointbody_inertia_ixz}" iyy="${orcahand_left_left_pinky_abd_jointbody_inertia_iyy}" iyz="${orcahand_left_left_pinky_abd_jointbody_inertia_iyz}" izz="${orcahand_left_left_pinky_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_pinky_pp">
+      <inertial>
+        <origin xyz="${orcahand_left_left_pinky_pp_inertial_origin_xyz}" rpy="${orcahand_left_left_pinky_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_pinky_pp_mass}"/>
+        <inertia ixx="${orcahand_left_left_pinky_pp_inertia_ixx}" ixy="${orcahand_left_left_pinky_pp_inertia_ixy}" ixz="${orcahand_left_left_pinky_pp_inertia_ixz}" iyy="${orcahand_left_left_pinky_pp_inertia_iyy}" iyz="${orcahand_left_left_pinky_pp_inertia_iyz}" izz="${orcahand_left_left_pinky_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_pinky_pp_mesh">
+        <origin xyz="${orcahand_left_left_pinky_pp_visual_left_visual_pinky_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_pp_visual_left_visual_pinky_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_pp_visual_left_visual_pinky_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_pinky_pp_visual_left_visual_pinky_pp_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_pinky_pp_skin_mesh">
+        <origin xyz="${orcahand_left_left_pinky_pp_visual_left_visual_pinky_pp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_pp_visual_left_visual_pinky_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_pp_visual_left_visual_pinky_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_pinky_pp_visual_left_visual_pinky_pp_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_pinky_pp_mesh">
+        <origin xyz="${orcahand_left_left_pinky_pp_collision_left_collision_pinky_pp_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_pp_collision_left_collision_pinky_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_pp_collision_left_collision_pinky_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_pinky_pp_skin_mesh">
+        <origin xyz="${orcahand_left_left_pinky_pp_collision_left_collision_pinky_pp_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_pp_collision_left_collision_pinky_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_pp_collision_left_collision_pinky_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_pinky_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_pinky_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_pinky_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_pinky_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_pinky_mcp_jointbody_inertia_ixx}" ixy="${orcahand_left_left_pinky_mcp_jointbody_inertia_ixy}" ixz="${orcahand_left_left_pinky_mcp_jointbody_inertia_ixz}" iyy="${orcahand_left_left_pinky_mcp_jointbody_inertia_iyy}" iyz="${orcahand_left_left_pinky_mcp_jointbody_inertia_iyz}" izz="${orcahand_left_left_pinky_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_pinky_ip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_pinky_ip_inertial_origin_xyz}" rpy="${orcahand_left_left_pinky_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_pinky_ip_mass}"/>
+        <inertia ixx="${orcahand_left_left_pinky_ip_inertia_ixx}" ixy="${orcahand_left_left_pinky_ip_inertia_ixy}" ixz="${orcahand_left_left_pinky_ip_inertia_ixz}" iyy="${orcahand_left_left_pinky_ip_inertia_iyy}" iyz="${orcahand_left_left_pinky_ip_inertia_iyz}" izz="${orcahand_left_left_pinky_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="left_visual_pinky_ip_mesh">
+        <origin xyz="${orcahand_left_left_pinky_ip_visual_left_visual_pinky_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_ip_visual_left_visual_pinky_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_ip_visual_left_visual_pinky_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_pinky_ip_visual_left_visual_pinky_ip_mesh_material}"/>
+      </visual>
+      <visual name="left_visual_pinky_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_pinky_ip_visual_left_visual_pinky_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_ip_visual_left_visual_pinky_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_ip_visual_left_visual_pinky_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_left_left_pinky_ip_visual_left_visual_pinky_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="left_collision_pinky_ip_mesh">
+        <origin xyz="${orcahand_left_left_pinky_ip_collision_left_collision_pinky_ip_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_ip_collision_left_collision_pinky_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_ip_collision_left_collision_pinky_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="left_collision_pinky_ip_skin_mesh">
+        <origin xyz="${orcahand_left_left_pinky_ip_collision_left_collision_pinky_ip_skin_mesh_origin_xyz}" rpy="${orcahand_left_left_pinky_ip_collision_left_collision_pinky_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_left_left_pinky_ip_collision_left_collision_pinky_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="left_pinky_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_left_left_pinky_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_left_left_pinky_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_pinky_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_left_left_pinky_pip_jointbody_inertia_ixx}" ixy="${orcahand_left_left_pinky_pip_jointbody_inertia_ixy}" ixz="${orcahand_left_left_pinky_pip_jointbody_inertia_ixz}" iyy="${orcahand_left_left_pinky_pip_jointbody_inertia_iyy}" iyz="${orcahand_left_left_pinky_pip_jointbody_inertia_iyz}" izz="${orcahand_left_left_pinky_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="left_pinky_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_left_left_pinky_fingertip_inertial_origin_xyz}" rpy="${orcahand_left_left_pinky_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_left_left_pinky_fingertip_mass}"/>
+        <inertia ixx="${orcahand_left_left_pinky_fingertip_inertia_ixx}" ixy="${orcahand_left_left_pinky_fingertip_inertia_ixy}" ixz="${orcahand_left_left_pinky_fingertip_inertia_ixz}" iyy="${orcahand_left_left_pinky_fingertip_inertia_iyy}" iyz="${orcahand_left_left_pinky_fingertip_inertia_iyz}" izz="${orcahand_left_left_pinky_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <joint name="left_wrist" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_wrist_origin_xyz}" rpy="${orcahand_left_joint_left_wrist_origin_rpy}"/>
+      <parent link="left_tower"/>
+      <child link="left_wrist_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_wrist_axis}"/>
+      <limit lower="${orcahand_left_joint_left_wrist_limit_lower}" upper="${orcahand_left_joint_left_wrist_limit_upper}" effort="${orcahand_left_joint_left_wrist_limit_effort}" velocity="${orcahand_left_joint_left_wrist_limit_velocity}"/>
+    </joint>
+    <joint name="left_wrist_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_wrist_offset_origin_xyz}" rpy="${orcahand_left_joint_left_wrist_offset_origin_rpy}"/>
+      <parent link="left_wrist_jointbody"/>
+      <child link="left_palm"/>
+    </joint>
+    <joint name="left_thumb_mcp" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_thumb_mcp_origin_xyz}" rpy="${orcahand_left_joint_left_thumb_mcp_origin_rpy}"/>
+      <parent link="left_palm"/>
+      <child link="left_thumb_mcp_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_thumb_mcp_axis}"/>
+      <limit lower="${orcahand_left_joint_left_thumb_mcp_limit_lower}" upper="${orcahand_left_joint_left_thumb_mcp_limit_upper}" effort="${orcahand_left_joint_left_thumb_mcp_limit_effort}" velocity="${orcahand_left_joint_left_thumb_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="left_thumb_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_thumb_mcp_offset_origin_xyz}" rpy="${orcahand_left_joint_left_thumb_mcp_offset_origin_rpy}"/>
+      <parent link="left_thumb_mcp_jointbody"/>
+      <child link="left_thumb_mp"/>
+    </joint>
+    <joint name="left_thumb_abd" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_thumb_abd_origin_xyz}" rpy="${orcahand_left_joint_left_thumb_abd_origin_rpy}"/>
+      <parent link="left_thumb_mp"/>
+      <child link="left_thumb_abd_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_thumb_abd_axis}"/>
+      <limit lower="${orcahand_left_joint_left_thumb_abd_limit_lower}" upper="${orcahand_left_joint_left_thumb_abd_limit_upper}" effort="${orcahand_left_joint_left_thumb_abd_limit_effort}" velocity="${orcahand_left_joint_left_thumb_abd_limit_velocity}"/>
+    </joint>
+    <joint name="left_thumb_abd_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_thumb_abd_offset_origin_xyz}" rpy="${orcahand_left_joint_left_thumb_abd_offset_origin_rpy}"/>
+      <parent link="left_thumb_abd_jointbody"/>
+      <child link="left_thumb_pp"/>
+    </joint>
+    <joint name="left_thumb_pip" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_thumb_pip_origin_xyz}" rpy="${orcahand_left_joint_left_thumb_pip_origin_rpy}"/>
+      <parent link="left_thumb_pp"/>
+      <child link="left_thumb_pip_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_thumb_pip_axis}"/>
+      <limit lower="${orcahand_left_joint_left_thumb_pip_limit_lower}" upper="${orcahand_left_joint_left_thumb_pip_limit_upper}" effort="${orcahand_left_joint_left_thumb_pip_limit_effort}" velocity="${orcahand_left_joint_left_thumb_pip_limit_velocity}"/>
+    </joint>
+    <joint name="left_thumb_pip_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_thumb_pip_offset_origin_xyz}" rpy="${orcahand_left_joint_left_thumb_pip_offset_origin_rpy}"/>
+      <parent link="left_thumb_pip_jointbody"/>
+      <child link="left_thumb_ip"/>
+    </joint>
+    <joint name="left_thumb_dip" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_thumb_dip_origin_xyz}" rpy="${orcahand_left_joint_left_thumb_dip_origin_rpy}"/>
+      <parent link="left_thumb_ip"/>
+      <child link="left_thumb_dip_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_thumb_dip_axis}"/>
+      <limit lower="${orcahand_left_joint_left_thumb_dip_limit_lower}" upper="${orcahand_left_joint_left_thumb_dip_limit_upper}" effort="${orcahand_left_joint_left_thumb_dip_limit_effort}" velocity="${orcahand_left_joint_left_thumb_dip_limit_velocity}"/>
+    </joint>
+    <joint name="left_thumb_dip_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_thumb_dip_offset_origin_xyz}" rpy="${orcahand_left_joint_left_thumb_dip_offset_origin_rpy}"/>
+      <parent link="left_thumb_dip_jointbody"/>
+      <child link="left_thumb_dp"/>
+    </joint>
+    <joint name="thumb_dp2left_thumb_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_thumb_dp2left_thumb_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_left_joint_thumb_dp2left_thumb_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="left_thumb_dp"/>
+      <child link="left_thumb_fingertip"/>
+    </joint>
+    <joint name="left_index_abd" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_index_abd_origin_xyz}" rpy="${orcahand_left_joint_left_index_abd_origin_rpy}"/>
+      <parent link="left_palm"/>
+      <child link="left_index_abd_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_index_abd_axis}"/>
+      <limit lower="${orcahand_left_joint_left_index_abd_limit_lower}" upper="${orcahand_left_joint_left_index_abd_limit_upper}" effort="${orcahand_left_joint_left_index_abd_limit_effort}" velocity="${orcahand_left_joint_left_index_abd_limit_velocity}"/>
+    </joint>
+    <joint name="left_index_abd_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_index_abd_offset_origin_xyz}" rpy="${orcahand_left_joint_left_index_abd_offset_origin_rpy}"/>
+      <parent link="left_index_abd_jointbody"/>
+      <child link="left_index_mp"/>
+    </joint>
+    <joint name="left_index_mcp" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_index_mcp_origin_xyz}" rpy="${orcahand_left_joint_left_index_mcp_origin_rpy}"/>
+      <parent link="left_index_mp"/>
+      <child link="left_index_mcp_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_index_mcp_axis}"/>
+      <limit lower="${orcahand_left_joint_left_index_mcp_limit_lower}" upper="${orcahand_left_joint_left_index_mcp_limit_upper}" effort="${orcahand_left_joint_left_index_mcp_limit_effort}" velocity="${orcahand_left_joint_left_index_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="left_index_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_index_mcp_offset_origin_xyz}" rpy="${orcahand_left_joint_left_index_mcp_offset_origin_rpy}"/>
+      <parent link="left_index_mcp_jointbody"/>
+      <child link="left_index_pp"/>
+    </joint>
+    <joint name="left_index_pip" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_index_pip_origin_xyz}" rpy="${orcahand_left_joint_left_index_pip_origin_rpy}"/>
+      <parent link="left_index_pp"/>
+      <child link="left_index_pip_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_index_pip_axis}"/>
+      <limit lower="${orcahand_left_joint_left_index_pip_limit_lower}" upper="${orcahand_left_joint_left_index_pip_limit_upper}" effort="${orcahand_left_joint_left_index_pip_limit_effort}" velocity="${orcahand_left_joint_left_index_pip_limit_velocity}"/>
+    </joint>
+    <joint name="left_index_pip_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_index_pip_offset_origin_xyz}" rpy="${orcahand_left_joint_left_index_pip_offset_origin_rpy}"/>
+      <parent link="left_index_pip_jointbody"/>
+      <child link="left_index_ip"/>
+    </joint>
+    <joint name="left_index_ip2left_index_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_index_ip2left_index_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_left_joint_left_index_ip2left_index_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="left_index_ip"/>
+      <child link="left_index_fingertip"/>
+    </joint>
+    <joint name="left_middle_abd" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_middle_abd_origin_xyz}" rpy="${orcahand_left_joint_left_middle_abd_origin_rpy}"/>
+      <parent link="left_palm"/>
+      <child link="left_middle_abd_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_middle_abd_axis}"/>
+      <limit lower="${orcahand_left_joint_left_middle_abd_limit_lower}" upper="${orcahand_left_joint_left_middle_abd_limit_upper}" effort="${orcahand_left_joint_left_middle_abd_limit_effort}" velocity="${orcahand_left_joint_left_middle_abd_limit_velocity}"/>
+    </joint>
+    <joint name="left_middle_abd_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_middle_abd_offset_origin_xyz}" rpy="${orcahand_left_joint_left_middle_abd_offset_origin_rpy}"/>
+      <parent link="left_middle_abd_jointbody"/>
+      <child link="left_middle_mp"/>
+    </joint>
+    <joint name="left_middle_mcp" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_middle_mcp_origin_xyz}" rpy="${orcahand_left_joint_left_middle_mcp_origin_rpy}"/>
+      <parent link="left_middle_mp"/>
+      <child link="left_middle_mcp_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_middle_mcp_axis}"/>
+      <limit lower="${orcahand_left_joint_left_middle_mcp_limit_lower}" upper="${orcahand_left_joint_left_middle_mcp_limit_upper}" effort="${orcahand_left_joint_left_middle_mcp_limit_effort}" velocity="${orcahand_left_joint_left_middle_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="left_middle_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_middle_mcp_offset_origin_xyz}" rpy="${orcahand_left_joint_left_middle_mcp_offset_origin_rpy}"/>
+      <parent link="left_middle_mcp_jointbody"/>
+      <child link="left_middle_pp"/>
+    </joint>
+    <joint name="left_middle_pip" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_middle_pip_origin_xyz}" rpy="${orcahand_left_joint_left_middle_pip_origin_rpy}"/>
+      <parent link="left_middle_pp"/>
+      <child link="left_middle_pip_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_middle_pip_axis}"/>
+      <limit lower="${orcahand_left_joint_left_middle_pip_limit_lower}" upper="${orcahand_left_joint_left_middle_pip_limit_upper}" effort="${orcahand_left_joint_left_middle_pip_limit_effort}" velocity="${orcahand_left_joint_left_middle_pip_limit_velocity}"/>
+    </joint>
+    <joint name="left_middle_pip_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_middle_pip_offset_origin_xyz}" rpy="${orcahand_left_joint_left_middle_pip_offset_origin_rpy}"/>
+      <parent link="left_middle_pip_jointbody"/>
+      <child link="left_middle_ip"/>
+    </joint>
+    <joint name="left_middle_ip2left_index_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_middle_ip2left_index_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_left_joint_left_middle_ip2left_index_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="left_middle_ip"/>
+      <child link="left_middle_fingertip"/>
+    </joint>
+    <joint name="left_ring_abd" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_ring_abd_origin_xyz}" rpy="${orcahand_left_joint_left_ring_abd_origin_rpy}"/>
+      <parent link="left_palm"/>
+      <child link="left_ring_abd_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_ring_abd_axis}"/>
+      <limit lower="${orcahand_left_joint_left_ring_abd_limit_lower}" upper="${orcahand_left_joint_left_ring_abd_limit_upper}" effort="${orcahand_left_joint_left_ring_abd_limit_effort}" velocity="${orcahand_left_joint_left_ring_abd_limit_velocity}"/>
+    </joint>
+    <joint name="left_ring_abd_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_ring_abd_offset_origin_xyz}" rpy="${orcahand_left_joint_left_ring_abd_offset_origin_rpy}"/>
+      <parent link="left_ring_abd_jointbody"/>
+      <child link="left_ring_mp"/>
+    </joint>
+    <joint name="left_ring_mcp" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_ring_mcp_origin_xyz}" rpy="${orcahand_left_joint_left_ring_mcp_origin_rpy}"/>
+      <parent link="left_ring_mp"/>
+      <child link="left_ring_mcp_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_ring_mcp_axis}"/>
+      <limit lower="${orcahand_left_joint_left_ring_mcp_limit_lower}" upper="${orcahand_left_joint_left_ring_mcp_limit_upper}" effort="${orcahand_left_joint_left_ring_mcp_limit_effort}" velocity="${orcahand_left_joint_left_ring_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="left_ring_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_ring_mcp_offset_origin_xyz}" rpy="${orcahand_left_joint_left_ring_mcp_offset_origin_rpy}"/>
+      <parent link="left_ring_mcp_jointbody"/>
+      <child link="left_ring_pp"/>
+    </joint>
+    <joint name="left_ring_pip" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_ring_pip_origin_xyz}" rpy="${orcahand_left_joint_left_ring_pip_origin_rpy}"/>
+      <parent link="left_ring_pp"/>
+      <child link="left_ring_pip_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_ring_pip_axis}"/>
+      <limit lower="${orcahand_left_joint_left_ring_pip_limit_lower}" upper="${orcahand_left_joint_left_ring_pip_limit_upper}" effort="${orcahand_left_joint_left_ring_pip_limit_effort}" velocity="${orcahand_left_joint_left_ring_pip_limit_velocity}"/>
+    </joint>
+    <joint name="left_ring_pip_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_ring_pip_offset_origin_xyz}" rpy="${orcahand_left_joint_left_ring_pip_offset_origin_rpy}"/>
+      <parent link="left_ring_pip_jointbody"/>
+      <child link="left_ring_ip"/>
+    </joint>
+    <joint name="left_ring_ip2left_index_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_ring_ip2left_index_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_left_joint_left_ring_ip2left_index_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="left_ring_ip"/>
+      <child link="left_ring_fingertip"/>
+    </joint>
+    <joint name="left_pinky_abd" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_pinky_abd_origin_xyz}" rpy="${orcahand_left_joint_left_pinky_abd_origin_rpy}"/>
+      <parent link="left_palm"/>
+      <child link="left_pinky_abd_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_pinky_abd_axis}"/>
+      <limit lower="${orcahand_left_joint_left_pinky_abd_limit_lower}" upper="${orcahand_left_joint_left_pinky_abd_limit_upper}" effort="${orcahand_left_joint_left_pinky_abd_limit_effort}" velocity="${orcahand_left_joint_left_pinky_abd_limit_velocity}"/>
+    </joint>
+    <joint name="left_pinky_abd_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_pinky_abd_offset_origin_xyz}" rpy="${orcahand_left_joint_left_pinky_abd_offset_origin_rpy}"/>
+      <parent link="left_pinky_abd_jointbody"/>
+      <child link="left_pinky_mp"/>
+    </joint>
+    <joint name="left_pinky_mcp" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_pinky_mcp_origin_xyz}" rpy="${orcahand_left_joint_left_pinky_mcp_origin_rpy}"/>
+      <parent link="left_pinky_mp"/>
+      <child link="left_pinky_mcp_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_pinky_mcp_axis}"/>
+      <limit lower="${orcahand_left_joint_left_pinky_mcp_limit_lower}" upper="${orcahand_left_joint_left_pinky_mcp_limit_upper}" effort="${orcahand_left_joint_left_pinky_mcp_limit_effort}" velocity="${orcahand_left_joint_left_pinky_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="left_pinky_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_pinky_mcp_offset_origin_xyz}" rpy="${orcahand_left_joint_left_pinky_mcp_offset_origin_rpy}"/>
+      <parent link="left_pinky_mcp_jointbody"/>
+      <child link="left_pinky_pp"/>
+    </joint>
+    <joint name="left_pinky_pip" type="revolute">
+      <origin xyz="${orcahand_left_joint_left_pinky_pip_origin_xyz}" rpy="${orcahand_left_joint_left_pinky_pip_origin_rpy}"/>
+      <parent link="left_pinky_pp"/>
+      <child link="left_pinky_pip_jointbody"/>
+      <axis xyz="${orcahand_left_joint_left_pinky_pip_axis}"/>
+      <limit lower="${orcahand_left_joint_left_pinky_pip_limit_lower}" upper="${orcahand_left_joint_left_pinky_pip_limit_upper}" effort="${orcahand_left_joint_left_pinky_pip_limit_effort}" velocity="${orcahand_left_joint_left_pinky_pip_limit_velocity}"/>
+    </joint>
+    <joint name="left_pinky_pip_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_pinky_pip_offset_origin_xyz}" rpy="${orcahand_left_joint_left_pinky_pip_offset_origin_rpy}"/>
+      <parent link="left_pinky_pip_jointbody"/>
+      <child link="left_pinky_ip"/>
+    </joint>
+    <joint name="left_pinky_ip2left_index_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_left_joint_left_pinky_ip2left_index_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_left_joint_left_pinky_ip2left_index_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="left_pinky_ip"/>
+      <child link="left_pinky_fingertip"/>
+    </joint>
+  </xacro:macro>
+<xacro:macro name="orcahand_right_module" params="parent_link">
+    <xacro:property name="hand_prefix" value="right_"/>
+    <link name="right_tower">
+      <inertial>
+        <origin xyz="${orcahand_right_right_tower_inertial_origin_xyz}" rpy="${orcahand_right_right_tower_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_tower_mass}"/>
+        <inertia ixx="${orcahand_right_right_tower_inertia_ixx}" ixy="${orcahand_right_right_tower_inertia_ixy}" ixz="${orcahand_right_right_tower_inertia_ixz}" iyy="${orcahand_right_right_tower_inertia_iyy}" iyz="${orcahand_right_right_tower_inertia_iyz}" izz="${orcahand_right_right_tower_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_tower_main_mesh">
+        <origin xyz="${orcahand_right_right_tower_visual_right_visual_tower_main_mesh_origin_xyz}" rpy="${orcahand_right_right_tower_visual_right_visual_tower_main_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_tower_visual_right_visual_tower_main_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_tower_visual_right_visual_tower_main_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_tower_hull_mesh">
+        <origin xyz="${orcahand_right_right_tower_visual_right_visual_tower_hull_mesh_origin_xyz}" rpy="${orcahand_right_right_tower_visual_right_visual_tower_hull_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_tower_visual_right_visual_tower_hull_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_tower_visual_right_visual_tower_hull_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_tower_text_mesh">
+        <origin xyz="${orcahand_right_right_tower_visual_right_visual_tower_text_mesh_origin_xyz}" rpy="${orcahand_right_right_tower_visual_right_visual_tower_text_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_tower_visual_right_visual_tower_text_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_tower_visual_right_visual_tower_text_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_tower_main_mesh">
+        <origin xyz="${orcahand_right_right_tower_collision_right_collision_tower_main_mesh_origin_xyz}" rpy="${orcahand_right_right_tower_collision_right_collision_tower_main_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_tower_collision_right_collision_tower_main_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_tower_hull_mesh">
+        <origin xyz="${orcahand_right_right_tower_collision_right_collision_tower_hull_mesh_origin_xyz}" rpy="${orcahand_right_right_tower_collision_right_collision_tower_hull_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_tower_collision_right_collision_tower_hull_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_tower_text_mesh">
+        <origin xyz="${orcahand_right_right_tower_collision_right_collision_tower_text_mesh_origin_xyz}" rpy="${orcahand_right_right_tower_collision_right_collision_tower_text_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_tower_collision_right_collision_tower_text_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_palm">
+      <inertial>
+        <origin xyz="${orcahand_right_right_palm_inertial_origin_xyz}" rpy="${orcahand_right_right_palm_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_palm_mass}"/>
+        <inertia ixx="${orcahand_right_right_palm_inertia_ixx}" ixy="${orcahand_right_right_palm_inertia_ixy}" ixz="${orcahand_right_right_palm_inertia_ixz}" iyy="${orcahand_right_right_palm_inertia_iyy}" iyz="${orcahand_right_right_palm_inertia_iyz}" izz="${orcahand_right_right_palm_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_palm_mesh">
+        <origin xyz="${orcahand_right_right_palm_visual_right_visual_palm_mesh_origin_xyz}" rpy="${orcahand_right_right_palm_visual_right_visual_palm_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_palm_visual_right_visual_palm_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_palm_visual_right_visual_palm_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_palm_skin_mesh">
+        <origin xyz="${orcahand_right_right_palm_visual_right_visual_palm_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_palm_visual_right_visual_palm_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_palm_visual_right_visual_palm_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_palm_visual_right_visual_palm_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_palm_mesh">
+        <origin xyz="${orcahand_right_right_palm_collision_right_collision_palm_mesh_origin_xyz}" rpy="${orcahand_right_right_palm_collision_right_collision_palm_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_palm_collision_right_collision_palm_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_palm_skin_mesh">
+        <origin xyz="${orcahand_right_right_palm_collision_right_collision_palm_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_palm_collision_right_collision_palm_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_palm_collision_right_collision_palm_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_wrist_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_wrist_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_wrist_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_wrist_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_wrist_jointbody_inertia_ixx}" ixy="${orcahand_right_right_wrist_jointbody_inertia_ixy}" ixz="${orcahand_right_right_wrist_jointbody_inertia_ixz}" iyy="${orcahand_right_right_wrist_jointbody_inertia_iyy}" iyz="${orcahand_right_right_wrist_jointbody_inertia_iyz}" izz="${orcahand_right_right_wrist_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_thumb_mp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_mp_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_mp_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_mp_inertia_ixx}" ixy="${orcahand_right_right_thumb_mp_inertia_ixy}" ixz="${orcahand_right_right_thumb_mp_inertia_ixz}" iyy="${orcahand_right_right_thumb_mp_inertia_iyy}" iyz="${orcahand_right_right_thumb_mp_inertia_iyz}" izz="${orcahand_right_right_thumb_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_thumb_mp_mesh">
+        <origin xyz="${orcahand_right_right_thumb_mp_visual_right_visual_thumb_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_mp_visual_right_visual_thumb_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_mp_visual_right_visual_thumb_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_thumb_mp_visual_right_visual_thumb_mp_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_thumb_mp_mesh">
+        <origin xyz="${orcahand_right_right_thumb_mp_collision_right_collision_thumb_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_mp_collision_right_collision_thumb_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_mp_collision_right_collision_thumb_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_thumb_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_mcp_jointbody_inertia_ixx}" ixy="${orcahand_right_right_thumb_mcp_jointbody_inertia_ixy}" ixz="${orcahand_right_right_thumb_mcp_jointbody_inertia_ixz}" iyy="${orcahand_right_right_thumb_mcp_jointbody_inertia_iyy}" iyz="${orcahand_right_right_thumb_mcp_jointbody_inertia_iyz}" izz="${orcahand_right_right_thumb_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_thumb_pp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_pp_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_pp_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_pp_inertia_ixx}" ixy="${orcahand_right_right_thumb_pp_inertia_ixy}" ixz="${orcahand_right_right_thumb_pp_inertia_ixz}" iyy="${orcahand_right_right_thumb_pp_inertia_iyy}" iyz="${orcahand_right_right_thumb_pp_inertia_iyz}" izz="${orcahand_right_right_thumb_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_thumb_pp_mesh">
+        <origin xyz="${orcahand_right_right_thumb_pp_visual_right_visual_thumb_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_pp_visual_right_visual_thumb_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_pp_visual_right_visual_thumb_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_thumb_pp_visual_right_visual_thumb_pp_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_thumb_pp_mesh">
+        <origin xyz="${orcahand_right_right_thumb_pp_collision_right_collision_thumb_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_pp_collision_right_collision_thumb_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_pp_collision_right_collision_thumb_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_thumb_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_abd_jointbody_inertia_ixx}" ixy="${orcahand_right_right_thumb_abd_jointbody_inertia_ixy}" ixz="${orcahand_right_right_thumb_abd_jointbody_inertia_ixz}" iyy="${orcahand_right_right_thumb_abd_jointbody_inertia_iyy}" iyz="${orcahand_right_right_thumb_abd_jointbody_inertia_iyz}" izz="${orcahand_right_right_thumb_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_thumb_ip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_ip_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_ip_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_ip_inertia_ixx}" ixy="${orcahand_right_right_thumb_ip_inertia_ixy}" ixz="${orcahand_right_right_thumb_ip_inertia_ixz}" iyy="${orcahand_right_right_thumb_ip_inertia_iyy}" iyz="${orcahand_right_right_thumb_ip_inertia_iyz}" izz="${orcahand_right_right_thumb_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_thumb_ip_mesh">
+        <origin xyz="${orcahand_right_right_thumb_ip_visual_right_visual_thumb_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_ip_visual_right_visual_thumb_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_ip_visual_right_visual_thumb_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_thumb_ip_visual_right_visual_thumb_ip_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_thumb_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_thumb_ip_visual_right_visual_thumb_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_ip_visual_right_visual_thumb_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_ip_visual_right_visual_thumb_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_thumb_ip_visual_right_visual_thumb_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_thumb_ip_mesh">
+        <origin xyz="${orcahand_right_right_thumb_ip_collision_right_collision_thumb_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_ip_collision_right_collision_thumb_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_ip_collision_right_collision_thumb_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_thumb_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_thumb_ip_collision_right_collision_thumb_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_ip_collision_right_collision_thumb_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_ip_collision_right_collision_thumb_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_thumb_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_pip_jointbody_inertia_ixx}" ixy="${orcahand_right_right_thumb_pip_jointbody_inertia_ixy}" ixz="${orcahand_right_right_thumb_pip_jointbody_inertia_ixz}" iyy="${orcahand_right_right_thumb_pip_jointbody_inertia_iyy}" iyz="${orcahand_right_right_thumb_pip_jointbody_inertia_iyz}" izz="${orcahand_right_right_thumb_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_thumb_dp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_dp_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_dp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_dp_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_dp_inertia_ixx}" ixy="${orcahand_right_right_thumb_dp_inertia_ixy}" ixz="${orcahand_right_right_thumb_dp_inertia_ixz}" iyy="${orcahand_right_right_thumb_dp_inertia_iyy}" iyz="${orcahand_right_right_thumb_dp_inertia_iyz}" izz="${orcahand_right_right_thumb_dp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_thumb_dp_mesh">
+        <origin xyz="${orcahand_right_right_thumb_dp_visual_right_visual_thumb_dp_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_dp_visual_right_visual_thumb_dp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_dp_visual_right_visual_thumb_dp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_thumb_dp_visual_right_visual_thumb_dp_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_thumb_dp_skin_mesh">
+        <origin xyz="${orcahand_right_right_thumb_dp_visual_right_visual_thumb_dp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_dp_visual_right_visual_thumb_dp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_dp_visual_right_visual_thumb_dp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_thumb_dp_visual_right_visual_thumb_dp_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_thumb_dp_mesh">
+        <origin xyz="${orcahand_right_right_thumb_dp_collision_right_collision_thumb_dp_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_dp_collision_right_collision_thumb_dp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_dp_collision_right_collision_thumb_dp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_thumb_dp_skin_mesh">
+        <origin xyz="${orcahand_right_right_thumb_dp_collision_right_collision_thumb_dp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_thumb_dp_collision_right_collision_thumb_dp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_thumb_dp_collision_right_collision_thumb_dp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_thumb_dip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_dip_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_dip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_dip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_dip_jointbody_inertia_ixx}" ixy="${orcahand_right_right_thumb_dip_jointbody_inertia_ixy}" ixz="${orcahand_right_right_thumb_dip_jointbody_inertia_ixz}" iyy="${orcahand_right_right_thumb_dip_jointbody_inertia_iyy}" iyz="${orcahand_right_right_thumb_dip_jointbody_inertia_iyz}" izz="${orcahand_right_right_thumb_dip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_thumb_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_thumb_fingertip_inertial_origin_xyz}" rpy="${orcahand_right_right_thumb_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_thumb_fingertip_mass}"/>
+        <inertia ixx="${orcahand_right_right_thumb_fingertip_inertia_ixx}" ixy="${orcahand_right_right_thumb_fingertip_inertia_ixy}" ixz="${orcahand_right_right_thumb_fingertip_inertia_ixz}" iyy="${orcahand_right_right_thumb_fingertip_inertia_iyy}" iyz="${orcahand_right_right_thumb_fingertip_inertia_iyz}" izz="${orcahand_right_right_thumb_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_index_mp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_index_mp_inertial_origin_xyz}" rpy="${orcahand_right_right_index_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_index_mp_mass}"/>
+        <inertia ixx="${orcahand_right_right_index_mp_inertia_ixx}" ixy="${orcahand_right_right_index_mp_inertia_ixy}" ixz="${orcahand_right_right_index_mp_inertia_ixz}" iyy="${orcahand_right_right_index_mp_inertia_iyy}" iyz="${orcahand_right_right_index_mp_inertia_iyz}" izz="${orcahand_right_right_index_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_index_mp_mesh">
+        <origin xyz="${orcahand_right_right_index_mp_visual_right_visual_index_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_index_mp_visual_right_visual_index_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_mp_visual_right_visual_index_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_index_mp_visual_right_visual_index_mp_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_index_mp_mesh">
+        <origin xyz="${orcahand_right_right_index_mp_collision_right_collision_index_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_index_mp_collision_right_collision_index_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_mp_collision_right_collision_index_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_index_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_index_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_index_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_index_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_index_abd_jointbody_inertia_ixx}" ixy="${orcahand_right_right_index_abd_jointbody_inertia_ixy}" ixz="${orcahand_right_right_index_abd_jointbody_inertia_ixz}" iyy="${orcahand_right_right_index_abd_jointbody_inertia_iyy}" iyz="${orcahand_right_right_index_abd_jointbody_inertia_iyz}" izz="${orcahand_right_right_index_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_index_pp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_index_pp_inertial_origin_xyz}" rpy="${orcahand_right_right_index_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_index_pp_mass}"/>
+        <inertia ixx="${orcahand_right_right_index_pp_inertia_ixx}" ixy="${orcahand_right_right_index_pp_inertia_ixy}" ixz="${orcahand_right_right_index_pp_inertia_ixz}" iyy="${orcahand_right_right_index_pp_inertia_iyy}" iyz="${orcahand_right_right_index_pp_inertia_iyz}" izz="${orcahand_right_right_index_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_index_pp_mesh">
+        <origin xyz="${orcahand_right_right_index_pp_visual_right_visual_index_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_index_pp_visual_right_visual_index_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_pp_visual_right_visual_index_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_index_pp_visual_right_visual_index_pp_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_index_pp_skin_mesh">
+        <origin xyz="${orcahand_right_right_index_pp_visual_right_visual_index_pp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_index_pp_visual_right_visual_index_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_pp_visual_right_visual_index_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_index_pp_visual_right_visual_index_pp_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_index_pp_mesh">
+        <origin xyz="${orcahand_right_right_index_pp_collision_right_collision_index_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_index_pp_collision_right_collision_index_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_pp_collision_right_collision_index_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_index_pp_skin_mesh">
+        <origin xyz="${orcahand_right_right_index_pp_collision_right_collision_index_pp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_index_pp_collision_right_collision_index_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_pp_collision_right_collision_index_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_index_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_index_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_index_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_index_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_index_mcp_jointbody_inertia_ixx}" ixy="${orcahand_right_right_index_mcp_jointbody_inertia_ixy}" ixz="${orcahand_right_right_index_mcp_jointbody_inertia_ixz}" iyy="${orcahand_right_right_index_mcp_jointbody_inertia_iyy}" iyz="${orcahand_right_right_index_mcp_jointbody_inertia_iyz}" izz="${orcahand_right_right_index_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_index_ip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_index_ip_inertial_origin_xyz}" rpy="${orcahand_right_right_index_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_index_ip_mass}"/>
+        <inertia ixx="${orcahand_right_right_index_ip_inertia_ixx}" ixy="${orcahand_right_right_index_ip_inertia_ixy}" ixz="${orcahand_right_right_index_ip_inertia_ixz}" iyy="${orcahand_right_right_index_ip_inertia_iyy}" iyz="${orcahand_right_right_index_ip_inertia_iyz}" izz="${orcahand_right_right_index_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_index_ip_mesh">
+        <origin xyz="${orcahand_right_right_index_ip_visual_right_visual_index_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_index_ip_visual_right_visual_index_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_ip_visual_right_visual_index_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_index_ip_visual_right_visual_index_ip_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_index_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_index_ip_visual_right_visual_index_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_index_ip_visual_right_visual_index_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_ip_visual_right_visual_index_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_index_ip_visual_right_visual_index_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_index_ip_mesh">
+        <origin xyz="${orcahand_right_right_index_ip_collision_right_collision_index_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_index_ip_collision_right_collision_index_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_ip_collision_right_collision_index_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_index_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_index_ip_collision_right_collision_index_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_index_ip_collision_right_collision_index_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_index_ip_collision_right_collision_index_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_index_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_index_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_index_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_index_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_index_pip_jointbody_inertia_ixx}" ixy="${orcahand_right_right_index_pip_jointbody_inertia_ixy}" ixz="${orcahand_right_right_index_pip_jointbody_inertia_ixz}" iyy="${orcahand_right_right_index_pip_jointbody_inertia_iyy}" iyz="${orcahand_right_right_index_pip_jointbody_inertia_iyz}" izz="${orcahand_right_right_index_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_index_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_index_fingertip_inertial_origin_xyz}" rpy="${orcahand_right_right_index_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_index_fingertip_mass}"/>
+        <inertia ixx="${orcahand_right_right_index_fingertip_inertia_ixx}" ixy="${orcahand_right_right_index_fingertip_inertia_ixy}" ixz="${orcahand_right_right_index_fingertip_inertia_ixz}" iyy="${orcahand_right_right_index_fingertip_inertia_iyy}" iyz="${orcahand_right_right_index_fingertip_inertia_iyz}" izz="${orcahand_right_right_index_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_middle_mp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_middle_mp_inertial_origin_xyz}" rpy="${orcahand_right_right_middle_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_middle_mp_mass}"/>
+        <inertia ixx="${orcahand_right_right_middle_mp_inertia_ixx}" ixy="${orcahand_right_right_middle_mp_inertia_ixy}" ixz="${orcahand_right_right_middle_mp_inertia_ixz}" iyy="${orcahand_right_right_middle_mp_inertia_iyy}" iyz="${orcahand_right_right_middle_mp_inertia_iyz}" izz="${orcahand_right_right_middle_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_middle_mp_mesh">
+        <origin xyz="${orcahand_right_right_middle_mp_visual_right_visual_middle_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_mp_visual_right_visual_middle_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_mp_visual_right_visual_middle_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_middle_mp_visual_right_visual_middle_mp_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_middle_mp_mesh">
+        <origin xyz="${orcahand_right_right_middle_mp_collision_right_collision_middle_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_mp_collision_right_collision_middle_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_mp_collision_right_collision_middle_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_middle_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_middle_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_middle_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_middle_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_middle_abd_jointbody_inertia_ixx}" ixy="${orcahand_right_right_middle_abd_jointbody_inertia_ixy}" ixz="${orcahand_right_right_middle_abd_jointbody_inertia_ixz}" iyy="${orcahand_right_right_middle_abd_jointbody_inertia_iyy}" iyz="${orcahand_right_right_middle_abd_jointbody_inertia_iyz}" izz="${orcahand_right_right_middle_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_middle_pp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_middle_pp_inertial_origin_xyz}" rpy="${orcahand_right_right_middle_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_middle_pp_mass}"/>
+        <inertia ixx="${orcahand_right_right_middle_pp_inertia_ixx}" ixy="${orcahand_right_right_middle_pp_inertia_ixy}" ixz="${orcahand_right_right_middle_pp_inertia_ixz}" iyy="${orcahand_right_right_middle_pp_inertia_iyy}" iyz="${orcahand_right_right_middle_pp_inertia_iyz}" izz="${orcahand_right_right_middle_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_middle_pp_mesh">
+        <origin xyz="${orcahand_right_right_middle_pp_visual_right_visual_middle_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_pp_visual_right_visual_middle_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_pp_visual_right_visual_middle_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_middle_pp_visual_right_visual_middle_pp_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_middle_pp_skin_mesh">
+        <origin xyz="${orcahand_right_right_middle_pp_visual_right_visual_middle_pp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_pp_visual_right_visual_middle_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_pp_visual_right_visual_middle_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_middle_pp_visual_right_visual_middle_pp_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_middle_pp_mesh">
+        <origin xyz="${orcahand_right_right_middle_pp_collision_right_collision_middle_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_pp_collision_right_collision_middle_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_pp_collision_right_collision_middle_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_middle_pp_skin_mesh">
+        <origin xyz="${orcahand_right_right_middle_pp_collision_right_collision_middle_pp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_pp_collision_right_collision_middle_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_pp_collision_right_collision_middle_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_middle_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_middle_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_middle_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_middle_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_middle_mcp_jointbody_inertia_ixx}" ixy="${orcahand_right_right_middle_mcp_jointbody_inertia_ixy}" ixz="${orcahand_right_right_middle_mcp_jointbody_inertia_ixz}" iyy="${orcahand_right_right_middle_mcp_jointbody_inertia_iyy}" iyz="${orcahand_right_right_middle_mcp_jointbody_inertia_iyz}" izz="${orcahand_right_right_middle_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_middle_ip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_middle_ip_inertial_origin_xyz}" rpy="${orcahand_right_right_middle_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_middle_ip_mass}"/>
+        <inertia ixx="${orcahand_right_right_middle_ip_inertia_ixx}" ixy="${orcahand_right_right_middle_ip_inertia_ixy}" ixz="${orcahand_right_right_middle_ip_inertia_ixz}" iyy="${orcahand_right_right_middle_ip_inertia_iyy}" iyz="${orcahand_right_right_middle_ip_inertia_iyz}" izz="${orcahand_right_right_middle_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_middle_ip_mesh">
+        <origin xyz="${orcahand_right_right_middle_ip_visual_right_visual_middle_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_ip_visual_right_visual_middle_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_ip_visual_right_visual_middle_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_middle_ip_visual_right_visual_middle_ip_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_middle_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_middle_ip_visual_right_visual_middle_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_ip_visual_right_visual_middle_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_ip_visual_right_visual_middle_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_middle_ip_visual_right_visual_middle_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_middle_ip_mesh">
+        <origin xyz="${orcahand_right_right_middle_ip_collision_right_collision_middle_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_ip_collision_right_collision_middle_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_ip_collision_right_collision_middle_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_middle_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_middle_ip_collision_right_collision_middle_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_middle_ip_collision_right_collision_middle_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_middle_ip_collision_right_collision_middle_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_middle_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_middle_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_middle_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_middle_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_middle_pip_jointbody_inertia_ixx}" ixy="${orcahand_right_right_middle_pip_jointbody_inertia_ixy}" ixz="${orcahand_right_right_middle_pip_jointbody_inertia_ixz}" iyy="${orcahand_right_right_middle_pip_jointbody_inertia_iyy}" iyz="${orcahand_right_right_middle_pip_jointbody_inertia_iyz}" izz="${orcahand_right_right_middle_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_middle_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_middle_fingertip_inertial_origin_xyz}" rpy="${orcahand_right_right_middle_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_middle_fingertip_mass}"/>
+        <inertia ixx="${orcahand_right_right_middle_fingertip_inertia_ixx}" ixy="${orcahand_right_right_middle_fingertip_inertia_ixy}" ixz="${orcahand_right_right_middle_fingertip_inertia_ixz}" iyy="${orcahand_right_right_middle_fingertip_inertia_iyy}" iyz="${orcahand_right_right_middle_fingertip_inertia_iyz}" izz="${orcahand_right_right_middle_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_ring_mp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_ring_mp_inertial_origin_xyz}" rpy="${orcahand_right_right_ring_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_ring_mp_mass}"/>
+        <inertia ixx="${orcahand_right_right_ring_mp_inertia_ixx}" ixy="${orcahand_right_right_ring_mp_inertia_ixy}" ixz="${orcahand_right_right_ring_mp_inertia_ixz}" iyy="${orcahand_right_right_ring_mp_inertia_iyy}" iyz="${orcahand_right_right_ring_mp_inertia_iyz}" izz="${orcahand_right_right_ring_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_ring_mp_mesh">
+        <origin xyz="${orcahand_right_right_ring_mp_visual_right_visual_ring_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_mp_visual_right_visual_ring_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_mp_visual_right_visual_ring_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_ring_mp_visual_right_visual_ring_mp_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_ring_mp_mesh">
+        <origin xyz="${orcahand_right_right_ring_mp_collision_right_collision_ring_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_mp_collision_right_collision_ring_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_mp_collision_right_collision_ring_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_ring_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_ring_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_ring_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_ring_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_ring_abd_jointbody_inertia_ixx}" ixy="${orcahand_right_right_ring_abd_jointbody_inertia_ixy}" ixz="${orcahand_right_right_ring_abd_jointbody_inertia_ixz}" iyy="${orcahand_right_right_ring_abd_jointbody_inertia_iyy}" iyz="${orcahand_right_right_ring_abd_jointbody_inertia_iyz}" izz="${orcahand_right_right_ring_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_ring_pp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_ring_pp_inertial_origin_xyz}" rpy="${orcahand_right_right_ring_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_ring_pp_mass}"/>
+        <inertia ixx="${orcahand_right_right_ring_pp_inertia_ixx}" ixy="${orcahand_right_right_ring_pp_inertia_ixy}" ixz="${orcahand_right_right_ring_pp_inertia_ixz}" iyy="${orcahand_right_right_ring_pp_inertia_iyy}" iyz="${orcahand_right_right_ring_pp_inertia_iyz}" izz="${orcahand_right_right_ring_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_ring_pp_mesh">
+        <origin xyz="${orcahand_right_right_ring_pp_visual_right_visual_ring_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_pp_visual_right_visual_ring_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_pp_visual_right_visual_ring_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_ring_pp_visual_right_visual_ring_pp_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_ring_pp_skin_mesh">
+        <origin xyz="${orcahand_right_right_ring_pp_visual_right_visual_ring_pp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_pp_visual_right_visual_ring_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_pp_visual_right_visual_ring_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_ring_pp_visual_right_visual_ring_pp_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_ring_pp_mesh">
+        <origin xyz="${orcahand_right_right_ring_pp_collision_right_collision_ring_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_pp_collision_right_collision_ring_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_pp_collision_right_collision_ring_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_ring_pp_skin_mesh">
+        <origin xyz="${orcahand_right_right_ring_pp_collision_right_collision_ring_pp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_pp_collision_right_collision_ring_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_pp_collision_right_collision_ring_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_ring_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_ring_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_ring_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_ring_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_ring_mcp_jointbody_inertia_ixx}" ixy="${orcahand_right_right_ring_mcp_jointbody_inertia_ixy}" ixz="${orcahand_right_right_ring_mcp_jointbody_inertia_ixz}" iyy="${orcahand_right_right_ring_mcp_jointbody_inertia_iyy}" iyz="${orcahand_right_right_ring_mcp_jointbody_inertia_iyz}" izz="${orcahand_right_right_ring_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_ring_ip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_ring_ip_inertial_origin_xyz}" rpy="${orcahand_right_right_ring_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_ring_ip_mass}"/>
+        <inertia ixx="${orcahand_right_right_ring_ip_inertia_ixx}" ixy="${orcahand_right_right_ring_ip_inertia_ixy}" ixz="${orcahand_right_right_ring_ip_inertia_ixz}" iyy="${orcahand_right_right_ring_ip_inertia_iyy}" iyz="${orcahand_right_right_ring_ip_inertia_iyz}" izz="${orcahand_right_right_ring_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_ring_ip_mesh">
+        <origin xyz="${orcahand_right_right_ring_ip_visual_right_visual_ring_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_ip_visual_right_visual_ring_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_ip_visual_right_visual_ring_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_ring_ip_visual_right_visual_ring_ip_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_ring_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_ring_ip_visual_right_visual_ring_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_ip_visual_right_visual_ring_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_ip_visual_right_visual_ring_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_ring_ip_visual_right_visual_ring_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_ring_ip_mesh">
+        <origin xyz="${orcahand_right_right_ring_ip_collision_right_collision_ring_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_ip_collision_right_collision_ring_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_ip_collision_right_collision_ring_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_ring_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_ring_ip_collision_right_collision_ring_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_ring_ip_collision_right_collision_ring_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_ring_ip_collision_right_collision_ring_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_ring_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_ring_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_ring_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_ring_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_ring_pip_jointbody_inertia_ixx}" ixy="${orcahand_right_right_ring_pip_jointbody_inertia_ixy}" ixz="${orcahand_right_right_ring_pip_jointbody_inertia_ixz}" iyy="${orcahand_right_right_ring_pip_jointbody_inertia_iyy}" iyz="${orcahand_right_right_ring_pip_jointbody_inertia_iyz}" izz="${orcahand_right_right_ring_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_ring_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_ring_fingertip_inertial_origin_xyz}" rpy="${orcahand_right_right_ring_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_ring_fingertip_mass}"/>
+        <inertia ixx="${orcahand_right_right_ring_fingertip_inertia_ixx}" ixy="${orcahand_right_right_ring_fingertip_inertia_ixy}" ixz="${orcahand_right_right_ring_fingertip_inertia_ixz}" iyy="${orcahand_right_right_ring_fingertip_inertia_iyy}" iyz="${orcahand_right_right_ring_fingertip_inertia_iyz}" izz="${orcahand_right_right_ring_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_pinky_mp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_pinky_mp_inertial_origin_xyz}" rpy="${orcahand_right_right_pinky_mp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_pinky_mp_mass}"/>
+        <inertia ixx="${orcahand_right_right_pinky_mp_inertia_ixx}" ixy="${orcahand_right_right_pinky_mp_inertia_ixy}" ixz="${orcahand_right_right_pinky_mp_inertia_ixz}" iyy="${orcahand_right_right_pinky_mp_inertia_iyy}" iyz="${orcahand_right_right_pinky_mp_inertia_iyz}" izz="${orcahand_right_right_pinky_mp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_pinky_mp_mesh">
+        <origin xyz="${orcahand_right_right_pinky_mp_visual_right_visual_pinky_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_mp_visual_right_visual_pinky_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_mp_visual_right_visual_pinky_mp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_pinky_mp_visual_right_visual_pinky_mp_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_pinky_mp_mesh">
+        <origin xyz="${orcahand_right_right_pinky_mp_collision_right_collision_pinky_mp_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_mp_collision_right_collision_pinky_mp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_mp_collision_right_collision_pinky_mp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_pinky_abd_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_pinky_abd_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_pinky_abd_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_pinky_abd_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_pinky_abd_jointbody_inertia_ixx}" ixy="${orcahand_right_right_pinky_abd_jointbody_inertia_ixy}" ixz="${orcahand_right_right_pinky_abd_jointbody_inertia_ixz}" iyy="${orcahand_right_right_pinky_abd_jointbody_inertia_iyy}" iyz="${orcahand_right_right_pinky_abd_jointbody_inertia_iyz}" izz="${orcahand_right_right_pinky_abd_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_pinky_pp">
+      <inertial>
+        <origin xyz="${orcahand_right_right_pinky_pp_inertial_origin_xyz}" rpy="${orcahand_right_right_pinky_pp_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_pinky_pp_mass}"/>
+        <inertia ixx="${orcahand_right_right_pinky_pp_inertia_ixx}" ixy="${orcahand_right_right_pinky_pp_inertia_ixy}" ixz="${orcahand_right_right_pinky_pp_inertia_ixz}" iyy="${orcahand_right_right_pinky_pp_inertia_iyy}" iyz="${orcahand_right_right_pinky_pp_inertia_iyz}" izz="${orcahand_right_right_pinky_pp_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_pinky_pp_mesh">
+        <origin xyz="${orcahand_right_right_pinky_pp_visual_right_visual_pinky_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_pp_visual_right_visual_pinky_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_pp_visual_right_visual_pinky_pp_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_pinky_pp_visual_right_visual_pinky_pp_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_pinky_pp_skin_mesh">
+        <origin xyz="${orcahand_right_right_pinky_pp_visual_right_visual_pinky_pp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_pp_visual_right_visual_pinky_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_pp_visual_right_visual_pinky_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_pinky_pp_visual_right_visual_pinky_pp_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_pinky_pp_mesh">
+        <origin xyz="${orcahand_right_right_pinky_pp_collision_right_collision_pinky_pp_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_pp_collision_right_collision_pinky_pp_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_pp_collision_right_collision_pinky_pp_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_pinky_pp_skin_mesh">
+        <origin xyz="${orcahand_right_right_pinky_pp_collision_right_collision_pinky_pp_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_pp_collision_right_collision_pinky_pp_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_pp_collision_right_collision_pinky_pp_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_pinky_mcp_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_pinky_mcp_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_pinky_mcp_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_pinky_mcp_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_pinky_mcp_jointbody_inertia_ixx}" ixy="${orcahand_right_right_pinky_mcp_jointbody_inertia_ixy}" ixz="${orcahand_right_right_pinky_mcp_jointbody_inertia_ixz}" iyy="${orcahand_right_right_pinky_mcp_jointbody_inertia_iyy}" iyz="${orcahand_right_right_pinky_mcp_jointbody_inertia_iyz}" izz="${orcahand_right_right_pinky_mcp_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_pinky_ip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_pinky_ip_inertial_origin_xyz}" rpy="${orcahand_right_right_pinky_ip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_pinky_ip_mass}"/>
+        <inertia ixx="${orcahand_right_right_pinky_ip_inertia_ixx}" ixy="${orcahand_right_right_pinky_ip_inertia_ixy}" ixz="${orcahand_right_right_pinky_ip_inertia_ixz}" iyy="${orcahand_right_right_pinky_ip_inertia_iyy}" iyz="${orcahand_right_right_pinky_ip_inertia_iyz}" izz="${orcahand_right_right_pinky_ip_inertia_izz}"/>
+      </inertial>
+      <visual name="right_visual_pinky_ip_mesh">
+        <origin xyz="${orcahand_right_right_pinky_ip_visual_right_visual_pinky_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_ip_visual_right_visual_pinky_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_ip_visual_right_visual_pinky_ip_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_pinky_ip_visual_right_visual_pinky_ip_mesh_material}"/>
+      </visual>
+      <visual name="right_visual_pinky_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_pinky_ip_visual_right_visual_pinky_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_ip_visual_right_visual_pinky_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_ip_visual_right_visual_pinky_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+        <material name="${orcahand_right_right_pinky_ip_visual_right_visual_pinky_ip_skin_mesh_material}"/>
+      </visual>
+      <collision name="right_collision_pinky_ip_mesh">
+        <origin xyz="${orcahand_right_right_pinky_ip_collision_right_collision_pinky_ip_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_ip_collision_right_collision_pinky_ip_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_ip_collision_right_collision_pinky_ip_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+      <collision name="right_collision_pinky_ip_skin_mesh">
+        <origin xyz="${orcahand_right_right_pinky_ip_collision_right_collision_pinky_ip_skin_mesh_origin_xyz}" rpy="${orcahand_right_right_pinky_ip_collision_right_collision_pinky_ip_skin_mesh_origin_rpy}"/>
+        <geometry>
+          <mesh filename="${orcahand_right_right_pinky_ip_collision_right_collision_pinky_ip_skin_mesh_mesh_filename}"/>
+        </geometry>
+      </collision>
+    </link>
+    <link name="right_pinky_pip_jointbody">
+      <inertial>
+        <origin xyz="${orcahand_right_right_pinky_pip_jointbody_inertial_origin_xyz}" rpy="${orcahand_right_right_pinky_pip_jointbody_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_pinky_pip_jointbody_mass}"/>
+        <inertia ixx="${orcahand_right_right_pinky_pip_jointbody_inertia_ixx}" ixy="${orcahand_right_right_pinky_pip_jointbody_inertia_ixy}" ixz="${orcahand_right_right_pinky_pip_jointbody_inertia_ixz}" iyy="${orcahand_right_right_pinky_pip_jointbody_inertia_iyy}" iyz="${orcahand_right_right_pinky_pip_jointbody_inertia_iyz}" izz="${orcahand_right_right_pinky_pip_jointbody_inertia_izz}"/>
+      </inertial>
+    </link>
+    <link name="right_pinky_fingertip">
+      <inertial>
+        <origin xyz="${orcahand_right_right_pinky_fingertip_inertial_origin_xyz}" rpy="${orcahand_right_right_pinky_fingertip_inertial_origin_rpy}"/>
+        <mass value="${orcahand_right_right_pinky_fingertip_mass}"/>
+        <inertia ixx="${orcahand_right_right_pinky_fingertip_inertia_ixx}" ixy="${orcahand_right_right_pinky_fingertip_inertia_ixy}" ixz="${orcahand_right_right_pinky_fingertip_inertia_ixz}" iyy="${orcahand_right_right_pinky_fingertip_inertia_iyy}" iyz="${orcahand_right_right_pinky_fingertip_inertia_iyz}" izz="${orcahand_right_right_pinky_fingertip_inertia_izz}"/>
+      </inertial>
+    </link>
+    <joint name="right_wrist" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_wrist_origin_xyz}" rpy="${orcahand_right_joint_right_wrist_origin_rpy}"/>
+      <parent link="right_tower"/>
+      <child link="right_wrist_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_wrist_axis}"/>
+      <limit lower="${orcahand_right_joint_right_wrist_limit_lower}" upper="${orcahand_right_joint_right_wrist_limit_upper}" effort="${orcahand_right_joint_right_wrist_limit_effort}" velocity="${orcahand_right_joint_right_wrist_limit_velocity}"/>
+    </joint>
+    <joint name="right_wrist_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_wrist_offset_origin_xyz}" rpy="${orcahand_right_joint_right_wrist_offset_origin_rpy}"/>
+      <parent link="right_wrist_jointbody"/>
+      <child link="right_palm"/>
+    </joint>
+    <joint name="right_thumb_mcp" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_thumb_mcp_origin_xyz}" rpy="${orcahand_right_joint_right_thumb_mcp_origin_rpy}"/>
+      <parent link="right_palm"/>
+      <child link="right_thumb_mcp_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_thumb_mcp_axis}"/>
+      <limit lower="${orcahand_right_joint_right_thumb_mcp_limit_lower}" upper="${orcahand_right_joint_right_thumb_mcp_limit_upper}" effort="${orcahand_right_joint_right_thumb_mcp_limit_effort}" velocity="${orcahand_right_joint_right_thumb_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="right_thumb_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_thumb_mcp_offset_origin_xyz}" rpy="${orcahand_right_joint_right_thumb_mcp_offset_origin_rpy}"/>
+      <parent link="right_thumb_mcp_jointbody"/>
+      <child link="right_thumb_mp"/>
+    </joint>
+    <joint name="right_thumb_abd" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_thumb_abd_origin_xyz}" rpy="${orcahand_right_joint_right_thumb_abd_origin_rpy}"/>
+      <parent link="right_thumb_mp"/>
+      <child link="right_thumb_abd_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_thumb_abd_axis}"/>
+      <limit lower="${orcahand_right_joint_right_thumb_abd_limit_lower}" upper="${orcahand_right_joint_right_thumb_abd_limit_upper}" effort="${orcahand_right_joint_right_thumb_abd_limit_effort}" velocity="${orcahand_right_joint_right_thumb_abd_limit_velocity}"/>
+    </joint>
+    <joint name="right_thumb_abd_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_thumb_abd_offset_origin_xyz}" rpy="${orcahand_right_joint_right_thumb_abd_offset_origin_rpy}"/>
+      <parent link="right_thumb_abd_jointbody"/>
+      <child link="right_thumb_pp"/>
+    </joint>
+    <joint name="right_thumb_pip" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_thumb_pip_origin_xyz}" rpy="${orcahand_right_joint_right_thumb_pip_origin_rpy}"/>
+      <parent link="right_thumb_pp"/>
+      <child link="right_thumb_pip_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_thumb_pip_axis}"/>
+      <limit lower="${orcahand_right_joint_right_thumb_pip_limit_lower}" upper="${orcahand_right_joint_right_thumb_pip_limit_upper}" effort="${orcahand_right_joint_right_thumb_pip_limit_effort}" velocity="${orcahand_right_joint_right_thumb_pip_limit_velocity}"/>
+    </joint>
+    <joint name="right_thumb_pip_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_thumb_pip_offset_origin_xyz}" rpy="${orcahand_right_joint_right_thumb_pip_offset_origin_rpy}"/>
+      <parent link="right_thumb_pip_jointbody"/>
+      <child link="right_thumb_ip"/>
+    </joint>
+    <joint name="right_thumb_dip" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_thumb_dip_origin_xyz}" rpy="${orcahand_right_joint_right_thumb_dip_origin_rpy}"/>
+      <parent link="right_thumb_ip"/>
+      <child link="right_thumb_dip_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_thumb_dip_axis}"/>
+      <limit lower="${orcahand_right_joint_right_thumb_dip_limit_lower}" upper="${orcahand_right_joint_right_thumb_dip_limit_upper}" effort="${orcahand_right_joint_right_thumb_dip_limit_effort}" velocity="${orcahand_right_joint_right_thumb_dip_limit_velocity}"/>
+    </joint>
+    <joint name="right_thumb_dip_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_thumb_dip_offset_origin_xyz}" rpy="${orcahand_right_joint_right_thumb_dip_offset_origin_rpy}"/>
+      <parent link="right_thumb_dip_jointbody"/>
+      <child link="right_thumb_dp"/>
+    </joint>
+    <joint name="thumb_dp2right_thumb_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_thumb_dp2right_thumb_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_right_joint_thumb_dp2right_thumb_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="right_thumb_dp"/>
+      <child link="right_thumb_fingertip"/>
+    </joint>
+    <joint name="right_index_abd" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_index_abd_origin_xyz}" rpy="${orcahand_right_joint_right_index_abd_origin_rpy}"/>
+      <parent link="right_palm"/>
+      <child link="right_index_abd_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_index_abd_axis}"/>
+      <limit lower="${orcahand_right_joint_right_index_abd_limit_lower}" upper="${orcahand_right_joint_right_index_abd_limit_upper}" effort="${orcahand_right_joint_right_index_abd_limit_effort}" velocity="${orcahand_right_joint_right_index_abd_limit_velocity}"/>
+    </joint>
+    <joint name="right_index_abd_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_index_abd_offset_origin_xyz}" rpy="${orcahand_right_joint_right_index_abd_offset_origin_rpy}"/>
+      <parent link="right_index_abd_jointbody"/>
+      <child link="right_index_mp"/>
+    </joint>
+    <joint name="right_index_mcp" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_index_mcp_origin_xyz}" rpy="${orcahand_right_joint_right_index_mcp_origin_rpy}"/>
+      <parent link="right_index_mp"/>
+      <child link="right_index_mcp_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_index_mcp_axis}"/>
+      <limit lower="${orcahand_right_joint_right_index_mcp_limit_lower}" upper="${orcahand_right_joint_right_index_mcp_limit_upper}" effort="${orcahand_right_joint_right_index_mcp_limit_effort}" velocity="${orcahand_right_joint_right_index_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="right_index_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_index_mcp_offset_origin_xyz}" rpy="${orcahand_right_joint_right_index_mcp_offset_origin_rpy}"/>
+      <parent link="right_index_mcp_jointbody"/>
+      <child link="right_index_pp"/>
+    </joint>
+    <joint name="right_index_pip" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_index_pip_origin_xyz}" rpy="${orcahand_right_joint_right_index_pip_origin_rpy}"/>
+      <parent link="right_index_pp"/>
+      <child link="right_index_pip_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_index_pip_axis}"/>
+      <limit lower="${orcahand_right_joint_right_index_pip_limit_lower}" upper="${orcahand_right_joint_right_index_pip_limit_upper}" effort="${orcahand_right_joint_right_index_pip_limit_effort}" velocity="${orcahand_right_joint_right_index_pip_limit_velocity}"/>
+    </joint>
+    <joint name="right_index_pip_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_index_pip_offset_origin_xyz}" rpy="${orcahand_right_joint_right_index_pip_offset_origin_rpy}"/>
+      <parent link="right_index_pip_jointbody"/>
+      <child link="right_index_ip"/>
+    </joint>
+    <joint name="right_index_ip2right_index_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_index_ip2right_index_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_right_joint_right_index_ip2right_index_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="right_index_ip"/>
+      <child link="right_index_fingertip"/>
+    </joint>
+    <joint name="right_middle_abd" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_middle_abd_origin_xyz}" rpy="${orcahand_right_joint_right_middle_abd_origin_rpy}"/>
+      <parent link="right_palm"/>
+      <child link="right_middle_abd_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_middle_abd_axis}"/>
+      <limit lower="${orcahand_right_joint_right_middle_abd_limit_lower}" upper="${orcahand_right_joint_right_middle_abd_limit_upper}" effort="${orcahand_right_joint_right_middle_abd_limit_effort}" velocity="${orcahand_right_joint_right_middle_abd_limit_velocity}"/>
+    </joint>
+    <joint name="right_middle_abd_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_middle_abd_offset_origin_xyz}" rpy="${orcahand_right_joint_right_middle_abd_offset_origin_rpy}"/>
+      <parent link="right_middle_abd_jointbody"/>
+      <child link="right_middle_mp"/>
+    </joint>
+    <joint name="right_middle_mcp" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_middle_mcp_origin_xyz}" rpy="${orcahand_right_joint_right_middle_mcp_origin_rpy}"/>
+      <parent link="right_middle_mp"/>
+      <child link="right_middle_mcp_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_middle_mcp_axis}"/>
+      <limit lower="${orcahand_right_joint_right_middle_mcp_limit_lower}" upper="${orcahand_right_joint_right_middle_mcp_limit_upper}" effort="${orcahand_right_joint_right_middle_mcp_limit_effort}" velocity="${orcahand_right_joint_right_middle_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="right_middle_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_middle_mcp_offset_origin_xyz}" rpy="${orcahand_right_joint_right_middle_mcp_offset_origin_rpy}"/>
+      <parent link="right_middle_mcp_jointbody"/>
+      <child link="right_middle_pp"/>
+    </joint>
+    <joint name="right_middle_pip" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_middle_pip_origin_xyz}" rpy="${orcahand_right_joint_right_middle_pip_origin_rpy}"/>
+      <parent link="right_middle_pp"/>
+      <child link="right_middle_pip_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_middle_pip_axis}"/>
+      <limit lower="${orcahand_right_joint_right_middle_pip_limit_lower}" upper="${orcahand_right_joint_right_middle_pip_limit_upper}" effort="${orcahand_right_joint_right_middle_pip_limit_effort}" velocity="${orcahand_right_joint_right_middle_pip_limit_velocity}"/>
+    </joint>
+    <joint name="right_middle_pip_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_middle_pip_offset_origin_xyz}" rpy="${orcahand_right_joint_right_middle_pip_offset_origin_rpy}"/>
+      <parent link="right_middle_pip_jointbody"/>
+      <child link="right_middle_ip"/>
+    </joint>
+    <joint name="right_middle_ip2right_index_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_middle_ip2right_index_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_right_joint_right_middle_ip2right_index_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="right_middle_ip"/>
+      <child link="right_middle_fingertip"/>
+    </joint>
+    <joint name="right_ring_abd" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_ring_abd_origin_xyz}" rpy="${orcahand_right_joint_right_ring_abd_origin_rpy}"/>
+      <parent link="right_palm"/>
+      <child link="right_ring_abd_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_ring_abd_axis}"/>
+      <limit lower="${orcahand_right_joint_right_ring_abd_limit_lower}" upper="${orcahand_right_joint_right_ring_abd_limit_upper}" effort="${orcahand_right_joint_right_ring_abd_limit_effort}" velocity="${orcahand_right_joint_right_ring_abd_limit_velocity}"/>
+    </joint>
+    <joint name="right_ring_abd_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_ring_abd_offset_origin_xyz}" rpy="${orcahand_right_joint_right_ring_abd_offset_origin_rpy}"/>
+      <parent link="right_ring_abd_jointbody"/>
+      <child link="right_ring_mp"/>
+    </joint>
+    <joint name="right_ring_mcp" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_ring_mcp_origin_xyz}" rpy="${orcahand_right_joint_right_ring_mcp_origin_rpy}"/>
+      <parent link="right_ring_mp"/>
+      <child link="right_ring_mcp_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_ring_mcp_axis}"/>
+      <limit lower="${orcahand_right_joint_right_ring_mcp_limit_lower}" upper="${orcahand_right_joint_right_ring_mcp_limit_upper}" effort="${orcahand_right_joint_right_ring_mcp_limit_effort}" velocity="${orcahand_right_joint_right_ring_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="right_ring_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_ring_mcp_offset_origin_xyz}" rpy="${orcahand_right_joint_right_ring_mcp_offset_origin_rpy}"/>
+      <parent link="right_ring_mcp_jointbody"/>
+      <child link="right_ring_pp"/>
+    </joint>
+    <joint name="right_ring_pip" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_ring_pip_origin_xyz}" rpy="${orcahand_right_joint_right_ring_pip_origin_rpy}"/>
+      <parent link="right_ring_pp"/>
+      <child link="right_ring_pip_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_ring_pip_axis}"/>
+      <limit lower="${orcahand_right_joint_right_ring_pip_limit_lower}" upper="${orcahand_right_joint_right_ring_pip_limit_upper}" effort="${orcahand_right_joint_right_ring_pip_limit_effort}" velocity="${orcahand_right_joint_right_ring_pip_limit_velocity}"/>
+    </joint>
+    <joint name="right_ring_pip_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_ring_pip_offset_origin_xyz}" rpy="${orcahand_right_joint_right_ring_pip_offset_origin_rpy}"/>
+      <parent link="right_ring_pip_jointbody"/>
+      <child link="right_ring_ip"/>
+    </joint>
+    <joint name="right_ring_ip2right_index_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_ring_ip2right_index_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_right_joint_right_ring_ip2right_index_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="right_ring_ip"/>
+      <child link="right_ring_fingertip"/>
+    </joint>
+    <joint name="right_pinky_abd" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_pinky_abd_origin_xyz}" rpy="${orcahand_right_joint_right_pinky_abd_origin_rpy}"/>
+      <parent link="right_palm"/>
+      <child link="right_pinky_abd_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_pinky_abd_axis}"/>
+      <limit lower="${orcahand_right_joint_right_pinky_abd_limit_lower}" upper="${orcahand_right_joint_right_pinky_abd_limit_upper}" effort="${orcahand_right_joint_right_pinky_abd_limit_effort}" velocity="${orcahand_right_joint_right_pinky_abd_limit_velocity}"/>
+    </joint>
+    <joint name="right_pinky_abd_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_pinky_abd_offset_origin_xyz}" rpy="${orcahand_right_joint_right_pinky_abd_offset_origin_rpy}"/>
+      <parent link="right_pinky_abd_jointbody"/>
+      <child link="right_pinky_mp"/>
+    </joint>
+    <joint name="right_pinky_mcp" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_pinky_mcp_origin_xyz}" rpy="${orcahand_right_joint_right_pinky_mcp_origin_rpy}"/>
+      <parent link="right_pinky_mp"/>
+      <child link="right_pinky_mcp_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_pinky_mcp_axis}"/>
+      <limit lower="${orcahand_right_joint_right_pinky_mcp_limit_lower}" upper="${orcahand_right_joint_right_pinky_mcp_limit_upper}" effort="${orcahand_right_joint_right_pinky_mcp_limit_effort}" velocity="${orcahand_right_joint_right_pinky_mcp_limit_velocity}"/>
+    </joint>
+    <joint name="right_pinky_mcp_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_pinky_mcp_offset_origin_xyz}" rpy="${orcahand_right_joint_right_pinky_mcp_offset_origin_rpy}"/>
+      <parent link="right_pinky_mcp_jointbody"/>
+      <child link="right_pinky_pp"/>
+    </joint>
+    <joint name="right_pinky_pip" type="revolute">
+      <origin xyz="${orcahand_right_joint_right_pinky_pip_origin_xyz}" rpy="${orcahand_right_joint_right_pinky_pip_origin_rpy}"/>
+      <parent link="right_pinky_pp"/>
+      <child link="right_pinky_pip_jointbody"/>
+      <axis xyz="${orcahand_right_joint_right_pinky_pip_axis}"/>
+      <limit lower="${orcahand_right_joint_right_pinky_pip_limit_lower}" upper="${orcahand_right_joint_right_pinky_pip_limit_upper}" effort="${orcahand_right_joint_right_pinky_pip_limit_effort}" velocity="${orcahand_right_joint_right_pinky_pip_limit_velocity}"/>
+    </joint>
+    <joint name="right_pinky_pip_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_pinky_pip_offset_origin_xyz}" rpy="${orcahand_right_joint_right_pinky_pip_offset_origin_rpy}"/>
+      <parent link="right_pinky_pip_jointbody"/>
+      <child link="right_pinky_ip"/>
+    </joint>
+    <joint name="right_pinky_ip2right_index_fingertip_fixed_offset" type="fixed">
+      <origin xyz="${orcahand_right_joint_right_pinky_ip2right_index_fingertip_fixed_offset_origin_xyz}" rpy="${orcahand_right_joint_right_pinky_ip2right_index_fingertip_fixed_offset_origin_rpy}"/>
+      <parent link="right_pinky_ip"/>
+      <child link="right_pinky_fingertip"/>
+    </joint>
+  </xacro:macro>
+  <!-- Root frame -->
+  <link name="${root_frame}"/>
+
+  <!-- Bimanual OpenArm body -->
+  <xacro:assembly_openarm_body connected_to="${root_frame}" xyz="0 0 0" rpy="0 0 0" body_type="v10" description_pkg="openarm_description" inertials_cfg="${openarm_body_inertials}" kinematics_cfg="${openarm_body_kinematics}" kinematics_link_cfg="${openarm_body_kinematics_link}"/>
+
+  <!-- Left OpenArm chain -->
+  <xacro:openarm_arm arm_type="v10" arm_prefix="left_" no_prefix="false" description_pkg="openarm_description" connected_to="openarm_body_link0" xyz="${left_arm_base_xyz}" rpy="${left_arm_base_rpy}" joint_limits="${openarm_joint_limits}" inertials="${openarm_inertials}" kinematics="${openarm_kinematics}" kinematics_link="${openarm_kinematics_link}" kinematics_offset="${openarm_kinematics_offset}"/>
+
+  <!-- Right OpenArm chain -->
+  <xacro:openarm_arm arm_type="v10" arm_prefix="right_" no_prefix="false" description_pkg="openarm_description" connected_to="openarm_body_link0" xyz="${right_arm_base_xyz}" rpy="${right_arm_base_rpy}" joint_limits="${openarm_joint_limits}" inertials="${openarm_inertials}" kinematics="${openarm_kinematics}" kinematics_link="${openarm_kinematics_link}" kinematics_offset="${openarm_kinematics_offset}"/>
+
+  <!-- Left connector and hand -->
+  <xacro:connector_module prefix="left" parent_link="openarm_left_link7"/>
+  <xacro:orcahand_left_module parent_link="left_connector_link"/>
+  <joint name="left_hand_mount" type="fixed">
+    <parent link="left_connector_link"/>
+    <child link="left_tower"/>
+    <origin xyz="${left_hand_mount_origin_xyz}" rpy="${left_hand_mount_origin_rpy}"/>
+  </joint>
+
+  <!-- Right connector and hand -->
+  <xacro:connector_module prefix="right" parent_link="openarm_right_link7"/>
+  <xacro:orcahand_right_module parent_link="right_connector_link"/>
+  <joint name="right_hand_mount" type="fixed">
+    <parent link="right_connector_link"/>
+    <child link="right_tower"/>
+    <origin xyz="${right_hand_mount_origin_xyz}" rpy="${right_hand_mount_origin_rpy}"/>
+  </joint>
+
+</robot>
