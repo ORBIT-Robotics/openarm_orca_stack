@@ -10,6 +10,7 @@
               no_prefix:=false
               description_pkg:='openarm_description'
               connected_to:='world'
+              create_parent_link:=true
               xyz:='0 0 0'
               rpy:='0 0 0'
               inertials
@@ -20,7 +21,9 @@
     <xacro:property name="prefix" value="${'' if no_prefix else 'openarm_' + 'body_'}" />
 
     <xacro:unless value="${not connected_to}">
-    <link name="${connected_to}" />
+    <xacro:if value="${create_parent_link}">
+      <link name="${connected_to}" />
+    </xacro:if>
     <joint name="${prefix}${connected_to}_joint" type="fixed">
     <parent link="${connected_to}" />
     <child link="${prefix}link0" />

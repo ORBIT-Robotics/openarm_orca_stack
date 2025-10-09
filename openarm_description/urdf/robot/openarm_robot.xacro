@@ -26,6 +26,7 @@
             body_prefix:=''
             arm_connected_to='base'
             body_connected_to='world'
+            body_create_parent_link:='true'
             bimanual:=false
             right_arm_base_xyz='0 0 0'
             left_arm_base_xyz='0 0 0'
@@ -62,6 +63,7 @@
         no_prefix="${no_prefix}"
         description_pkg="openarm_description"
         connected_to="${body_connected_to}"
+        create_parent_link="${body_create_parent_link}"
         xyz="${xyz}"
         rpy="${rpy}"
         inertials="${body_inertials}"

@@ -25,6 +25,9 @@
   <xacro:arg name="orcahand_left_urdf" default="$(arg orcahand_description_path)/models/urdf/orcahand_left.urdf"/>
   <xacro:arg name="orcahand_right_urdf" default="$(arg orcahand_description_path)/models/urdf/orcahand_right.urdf"/>
 
+  <xacro:property name="root_link" value="$(arg parent)"/>
+  <link name="${root_link}"/>
+
   <!-- Shared material definition used by the ORCA models. -->
   <!-- Shared material definitions to avoid duplicate declarations in sub-URDFs -->
   <material name="white">
@@ -70,14 +73,11 @@
     right_arm_base_rpy="$(arg right_arm_base_rpy)"
     left_arm_base_rpy="$(arg left_arm_base_rpy)"
     can_fd="$(arg can_fd)"
+    body_create_parent_link="false"
     parent="$(arg parent)"
     xyz="$(arg xyz)"
     rpy="$(arg rpy)"/>
 
-  <!-- LEFT ARM ASSEMBLY -->
-  <!-- Include OpenArm robot (v10). This file exists. -->
-  <xacro:include filename="$(find openarm_description)/urdf/robot/v10.urdf.xacro"/>
-  
   <!-- Include the connector macro -->
   <xacro:include filename="$(find connectors_description)/urdf/connector.urdf.xacro"/>
   
