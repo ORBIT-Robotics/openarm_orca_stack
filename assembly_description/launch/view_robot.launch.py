@@ -41,13 +41,7 @@ def generate_launch_description():
     robot_description = Command([
         FindExecutable(name='xacro'),
         ' ',
-        PathJoinSubstitution([assembly_pkg_share, 'urdf', 'assembly.urdf']),
-        ' ',
-        'bimanual:=', LaunchConfiguration('bimanual'),
-        ' ',
-        'hand:=', LaunchConfiguration('hand'),
-        ' ',
-        'ee_type:=', LaunchConfiguration('ee_type')
+        PathJoinSubstitution([assembly_pkg_share, 'urdf', 'assembly_flat.urdf.xacro'])
     ])
 
     robot_state_publisher_node = Node(
