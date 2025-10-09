@@ -20,10 +20,34 @@ def generate_launch_description():
         description='Start joint_state_publisher_gui'
     )
 
+    bimanual_arg = DeclareLaunchArgument(
+        'bimanual',
+        default_value='true',
+        description='Instantiate both left and right arms'
+    )
+
+    hand_arg = DeclareLaunchArgument(
+        'hand',
+        default_value='false',
+        description='Attach the OpenArm hand URDFs'
+    )
+
+    ee_type_arg = DeclareLaunchArgument(
+        'ee_type',
+        default_value='none',
+        description='Select the OpenArm end-effector variant'
+    )
+
     robot_description = Command([
         FindExecutable(name='xacro'),
         ' ',
-        PathJoinSubstitution([assembly_pkg_share, 'urdf', 'assembly_flat.urdf.xacro'])
+        PathJoinSubstitution([assembly_pkg_share, 'urdf', 'assembly.urdf']),
+        ' ',
+        'bimanual:=', LaunchConfiguration('bimanual'),
+        ' ',
+        'hand:=', LaunchConfiguration('hand'),
+        ' ',
+        'ee_type:=', LaunchConfiguration('ee_type')
     ])
 
     robot_state_publisher_node = Node(
@@ -53,6 +77,9 @@ def generate_launch_description():
 
     return LaunchDescription([
         use_gui_arg,
+        bimanual_arg,
+        hand_arg,
+        ee_type_arg,
         robot_state_publisher_node,
         joint_state_publisher_gui_node,
         rviz_node
