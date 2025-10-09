@@ -78,12 +78,6 @@
     xyz="$(arg xyz)"
     rpy="$(arg rpy)"/>
 
-  <!-- Include the connector macro -->
-  <xacro:include filename="$(find connectors_description)/urdf/connector.urdf.xacro"/>
-  
-  <!-- Include the ORCA hands as URDFs from installed models directory -->
-  <xacro:include filename="$(find orcahand_description)/models/urdf/orcahand_left.urdf"/>
-  <xacro:include filename="$(find orcahand_description)/models/urdf/orcahand_right.urdf"/>
   
   <!-- LEFT ARM ASSEMBLY -->
   <!-- Attach left connector to left arm flange (link_7) -->

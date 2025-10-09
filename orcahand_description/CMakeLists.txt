@@ -3,16 +3,14 @@ project(orcahand_description)
 
 find_package(ament_cmake REQUIRED)
 
-install(DIRECTORY models/
-  DESTINATION share/${PROJECT_NAME}/models
-)
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  set(ament_cmake_copyright_FOUND TRUE)
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
 
-install(DIRECTORY assets/
-  DESTINATION share/${PROJECT_NAME}/assets
-)
-
-install(DIRECTORY launch/
-  DESTINATION share/${PROJECT_NAME}/launch
-)
+install(DIRECTORY models assets launch rviz tests utils
+        DESTINATION share/${PROJECT_NAME})
 
 ament_package()
